@@ -12,7 +12,7 @@ const PRIMARY_WEAPON_TYPES = [
 const SECONDARY_WEAPON_TYPES = [
   'Pistol',
   'Revolver',
-  'Auto Pistol'
+  'Auto Pistol',
 ];
 
 // 💣 Tipos de Explosivos/Granadas

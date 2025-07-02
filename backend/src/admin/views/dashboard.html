@@ -1,0 +1,173 @@
+<!-- Dashboard Content -->
+<div class="dashboard-container">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <h2 class="dashboard-title">📊 Dashboard Principal</h2>
+        <p class="dashboard-subtitle">Gerencie todos os equipamentos e dados do Helldivers 2</p>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="stats-grid">
+        <div class="stat-card total-items">
+            <div class="stat-icon">📦</div>
+            <div class="stat-content">
+                <h3 class="stat-title">Total de Itens</h3>
+                <p class="stat-value" id="totalItemsCount">-</p>
+                <span class="stat-label">Em toda a base de dados</span>
+            </div>
+        </div>
+
+        <div class="stat-card most-popular">
+            <div class="stat-icon">🔥</div>
+            <div class="stat-content">
+                <h3 class="stat-title">Categoria Maior</h3>
+                <p class="stat-value" id="largestCategory">-</p>
+                <span class="stat-label">Com mais itens</span>
+            </div>
+        </div>
+
+        <div class="stat-card last-updated">
+            <div class="stat-icon">🕒</div>
+            <div class="stat-content">
+                <h3 class="stat-title">Última Atualização</h3>
+                <p class="stat-value" id="lastUpdateTime">-</p>
+                <span class="stat-label">Dados sincronizados</span>
+            </div>
+        </div>
+
+        <div class="stat-card api-status">
+            <div class="stat-icon">🚀</div>
+            <div class="stat-content">
+                <h3 class="stat-title">Status da API</h3>
+                <p class="stat-value" id="apiStatus">-</p>
+                <span class="stat-label">Sistema operacional</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Models Grid -->
+    <div class="models-section">
+        <h3 class="section-title">🎮 Modelos Disponíveis</h3>
+        <div class="models-grid" id="modelsGrid">
+            <!-- Models will be loaded here dynamically -->
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions-section">
+        <h3 class="section-title">⚡ Ações Rápidas</h3>
+        <div class="quick-actions-grid">
+            <div class="quick-action-card">
+                <div class="quick-action-icon">📊</div>
+                <h4>Estatísticas Completas</h4>
+                <p>Ver relatório detalhado de todos os modelos</p>
+                <button id="showStatsBtn" class="btn btn-primary">
+                    Ver Estatísticas
+                </button>
+            </div>
+
+            <div class="quick-action-card">
+                <div class="quick-action-icon">🔄</div>
+                <h4>Sincronizar Dados</h4>
+                <p>Atualizar cache e recarregar informações</p>
+                <button id="syncDataBtn" class="btn btn-warning">
+                    Sincronizar
+                </button>
+            </div>
+
+            <div class="quick-action-card">
+                <div class="quick-action-icon">📁</div>
+                <h4>Exportar Dados</h4>
+                <p>Baixar backup de todos os modelos</p>
+                <button id="exportDataBtn" class="btn btn-success">
+                    Exportar
+                </button>
+            </div>
+
+            <div class="quick-action-card">
+                <div class="quick-action-icon">⚙️</div>
+                <h4>Configurações</h4>
+                <p>Ajustar configurações do sistema</p>
+                <button id="showSettingsBtn" class="btn btn-secondary">
+                    Configurar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="activity-section">
+        <h3 class="section-title">📋 Atividade Recente</h3>
+        <div class="activity-feed" id="activityFeed">
+            <div class="activity-item">
+                <div class="activity-icon">🔄</div>
+                <div class="activity-content">
+                    <p class="activity-text">Sistema iniciado com sucesso</p>
+                    <span class="activity-time">Agora mesmo</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modals for Quick Actions -->
+
+<!-- Stats Modal -->
+<div id="statsModal" class="modal">
+    <div class="modal-content large">
+        <div class="modal-header">
+            <h3>📊 Estatísticas Detalhadas</h3>
+            <button id="statsModalClose" class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="statsContent">
+                <div class="loading">Carregando estatísticas...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Settings Modal -->
+<div id="settingsModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>⚙️ Configurações do Sistema</h3>
+            <button id="settingsModalClose" class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="settings-grid">
+                <div class="setting-item">
+                    <label>🔄 Auto-refresh</label>
+                    <input type="checkbox" id="autoRefresh">
+                    <span>Atualizar dados automaticamente (desabilitado por padrão)</span>
+                </div>
+                
+                <div class="setting-item">
+                    <label>🌙 Tema escuro</label>
+                    <input type="checkbox" id="darkTheme" checked>
+                    <span>Interface com tema escuro</span>
+                </div>
+                
+                <div class="setting-item">
+                    <label>🔔 Notificações</label>
+                    <input type="checkbox" id="notifications" checked>
+                    <span>Mostrar notificações do sistema</span>
+                </div>
+                
+                <div class="setting-item">
+                    <label>📊 Modo desenvolvedor</label>
+                    <input type="checkbox" id="devMode">
+                    <span>Mostrar informações técnicas</span>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button id="settingsCancel" class="btn btn-secondary">
+                Cancelar
+            </button>
+            <button id="settingsSave" class="btn btn-primary">
+                Salvar Configurações
+            </button>
+        </div>
+    </div>
+</div>

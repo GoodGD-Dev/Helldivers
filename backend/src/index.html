@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Helldivers 2 - Admin Panel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 30px 0;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #ffd700, #ff6b35);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .models-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .model-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 25px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .model-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+            border-color: #ffd700;
+        }
+
+        .model-card h3 {
+            font-size: 1.3em;
+            margin-bottom: 15px;
+            color: #ffd700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .model-card p {
+            color: #ccc;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+        }
+
+        .count {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #4ade80;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-weight: 500;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #3b82f6, #1d4ed8);
+            color: white;
+        }
+
+        .btn-success {
+            background: linear-gradient(45deg, #10b981, #047857);
+            color: white;
+        }
+
+        .btn-warning {
+            background: linear-gradient(45deg, #f59e0b, #d97706);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(45deg, #ef4444, #dc2626);
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .form-container {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            backdrop-filter: blur(5px);
+        }
+
+        .form-modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 30px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #ffd700;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            font-size: 1em;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: flex-end;
+            margin-top: 30px;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            overflow: hidden;
+            margin-top: 20px;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .data-table th {
+            background: rgba(0, 0, 0, 0.3);
+            color: #ffd700;
+            font-weight: 600;
+        }
+
+        .data-table tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .pagination button {
+            padding: 8px 12px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .pagination button:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .pagination button.active {
+            background: #ffd700;
+            color: #000;
+        }
+
+        .search-bar {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .search-bar input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #ffd700;
+            font-size: 1.2em;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 1.5em;
+            cursor: pointer;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            z-index: 2000;
+            display: none;
+        }
+
+        .notification.success {
+            background: linear-gradient(45deg, #10b981, #047857);
+        }
+
+        .notification.error {
+            background: linear-gradient(45deg, #ef4444, #dc2626);
+        }
+
+        @media (max-width: 768px) {
+            .models-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .actions {
+                justify-content: center;
+            }
+            
+            .form-modal {
+                width: 95%;
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎮 Helldivers 2 Admin Panel</h1>
+            <p>Gerencie todos os equipamentos e dados do jogo</p>
+        </div>
+
+        <div class="models-grid" id="modelsGrid">
+            <!-- Os cards dos modelos serão inseridos aqui via JavaScript -->
+        </div>
+
+        <!-- Modal para formulários -->
+        <div class="form-container" id="formContainer">
+            <div class="form-modal">
+                <button class="close-btn" onclick="closeForm()">&times;</button>
+                <h2 id="formTitle">Adicionar Item</h2>
+                <form id="dynamicForm">
+                    <div id="formFields">
+                        <!-- Campos serão gerados dinamicamente -->
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-danger" onclick="closeForm()">Cancelar</button>
+                        <button type="submit" class="btn btn-success">Salvar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal para visualização de dados -->
+        <div class="form-container" id="dataContainer">
+            <div class="form-modal" style="max-width: 1000px;">
+                <button class="close-btn" onclick="closeDataView()">&times;</button>
+                <h2 id="dataTitle">Dados</h2>
+                <div class="search-bar">
+                    <input type="text" id="searchInput" placeholder="Buscar...">
+                    <select id="filterSelect">
+                        <option value="">Todos os tipos</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="searchData()">🔍 Buscar</button>
+                </div>
+                <div id="dataContent">
+                    <!-- Tabela será inserida aqui -->
+                </div>
+                <div class="pagination" id="pagination">
+                    <!-- Paginação será inserida aqui -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notificações -->
+    <div class="notification" id="notification"></div>
+
+    <script>
+        // Configurações da API
+        const API_BASE = '/api';
+        
+        // Definições dos modelos
+        const models = {
+            'primary-weapons': {
+                name: 'Armas Primárias',
+                icon: '🔫',
+                description: 'Rifles, shotguns e outras armas principais',
+                fields: {
+                    name: { type: 'text', label: 'Nome', required: true },
+                    type: { type: 'select', label: 'Tipo', required: true, 
+                           options: ['Assault Rifle', 'Shotgun', 'Sniper', 'SMG', 'LMG', 'DMR'] },
+                    damage: { type: 'number', label: 'Dano', required: true, min: 0, max: 10000 },
+                    fireRate: { type: 'number', label: 'Taxa de Disparo', required: true, min: 0, max: 2000 },
+                    magazineSize: { type: 'number', label: 'Tamanho do Carregador', required: true, min: 1, max: 200 },
+                    reloadTime: { type: 'number', label: 'Tempo de Recarga', required: true, min: 0.1, max: 10, step: 0.1 },
+                    description: { type: 'textarea', label: 'Descrição', required: true }
+                }
+            },
+            'secondary-weapons': {
+                name: 'Armas Secundárias',
+                icon: '🔫',
+                description: 'Pistolas e revólveres',
+                fields: {
+                    name: { type: 'text', label: 'Nome', required: true },
+                    type: { type: 'select', label: 'Tipo', required: true, 
+                           options: ['Pistol', 'Revolver', 'Auto Pistol'] },
+                    damage: { type: 'number', label: 'Dano', required: true, min: 0, max: 10000 },
+                    magazineSize: { type: 'number', label: 'Tamanho do Carregador', required: true, min: 1, max: 50 },
+                    reloadTime: { type: 'number', label: 'Tempo de Recarga', required: true, min: 0.1, max: 5, step: 0.1 },
+                    description: { type: 'textarea', label: 'Descrição', required: true }
+                }
+            },
+            'throwables': {
+                name: 'Explosivos',
+                icon: '💣',
+                description: 'Granadas e outros explosivos',
+                fields: {
+                    name: { type: 'text', label: 'Nome', required: true },
+                    type: { type: 'select', label: 'Tipo', required: true, 
+                           options: ['Frag Grenade', 'Incendiary', 'Anti-Tank', 'Proximity Mine'] },
+                    damage: { type: 'number', label: 'Dano', required: true, min: 0, max: 10000 },
+                    blastRadius: { type: 'number', label: 'Raio de Explosão', required: true, min: 0, max: 100 },
+                    description: { type: 'textarea', label: 'Descrição', required: true }
+                }
+            },
+            'stratagems': {
+                name: 'Stratagemas',
+                icon: '📡',
+                description: 'Suporte orbital e terrestre',
+                fields: {
+                    name: { type: 'text', label: 'Nome', required: true },
+                    category: { type: 'select', label: 'Categoria', required: true, 
+                               options: ['Defensive', 'Offensive', 'Supply'] },
+                    cooldown: { type: 'number', label: 'Cooldown (segundos)', required: true, min: 0, max: 600 },
+                    uses: { type: 'number', label: 'Usos', required: true, min: 1, max: 999 },
+                    description: { type: 'textarea', label: 'Descrição', required: true }
+                }
+            },
+            'armors': {
+                name: 'Armaduras',
+                icon: '🛡️',
+                description: 'Equipamentos de proteção',
+                fields: {
+                    name: { type: 'text', label: 'Nome', required: true },
+                    type: { type: 'select', label: 'Tipo', required: true, 
+                           options: ['Light', 'Medium', 'Heavy'] },
+                    armorRating: { type: 'number', label: 'Rating da Armadura', required: true, min: 0, max: 500 },
+                    speed: { type: 'number', label: 'Velocidade', required: true, min: 0, max: 100 },
+                    staminaRegen: { type: 'number', label: 'Regeneração de Stamina', required: true, min: 0, max: 100 },
+                    description: { type: 'textarea', label: 'Descrição', required: true }
+                }
+            },
+            'passive-armors': {
+                name: 'Passivas de Armadura',
+                icon: '⚡',
+                description: 'Efeitos passivos das armaduras',
+                fields: {
+                    name: { type: 'text', label: 'Nome', required: true },
+                    effect: { type: 'text', label: 'Efeito', required: true },
+                    description: { type: 'textarea', label: 'Descrição', required: true }
+                }
+            },
+            'perks': {
+                name: 'Perks',
+                icon: '🎯',
+                description: 'Vantagens e habilidades especiais',
+                fields: {
+                    name: { type: 'text', label: 'Nome', required: true },
+                    effect: { type: 'text', label: 'Efeito', required: true },
+                    description: { type: 'textarea', label: 'Descrição', required: true }
+                }
+            }
+        };
+
+        let currentModel = '';
+        let currentData = [];
+        let currentPage = 1;
+        let totalPages = 1;
+        let editingId = null;
+
+        // Inicializar a página
+        async function init() {
+            await loadModelCards();
+        }
+
+        // Carregar cards dos modelos
+        async function loadModelCards() {
+            const grid = document.getElementById('modelsGrid');
+            grid.innerHTML = '';
+
+            for (const [key, model] of Object.entries(models)) {
+                const count = await getModelCount(key);
+                const card = createModelCard(key, model, count);
+                grid.appendChild(card);
+            }
+        }
+
+        // Obter contagem de itens de um modelo
+        async function getModelCount(modelKey) {
+            try {
+                const response = await fetch(`${API_BASE}/${modelKey}?limit=1`);
+                const data = await response.json();
+                return data.pagination ? data.pagination.totalItems : 0;
+            } catch (error) {
+                console.error('Erro ao obter contagem:', error);
+                return 0;
+            }
+        }
+
+        // Criar card do modelo
+        function createModelCard(key, model, count) {
+            const card = document.createElement('div');
+            card.className = 'model-card';
+            card.innerHTML = `
+                <h3>${model.icon} ${model.name}</h3>
+                <p>${model.description}</p>
+                <div class="stats">
+                    <span>Total de itens:</span>
+                    <span class="count">${count}</span>
+                </div>
+                <div class="actions">
+                    <button class="btn btn-primary" onclick="viewData('${key}')">
+                        📋 Ver Dados
+                    </button>
+                    <button class="btn btn-success" onclick="showAddForm('${key}')">
+                        ➕ Adicionar
+                    </button>
+                </div>
+            `;
+            return card;
+        }
+
+        // Mostrar formulário de adição
+        function showAddForm(modelKey) {
+            currentModel = modelKey;
+            editingId = null;
+            const model = models[modelKey];
+            
+            document.getElementById('formTitle').textContent = `Adicionar ${model.name}`;
+            generateForm(model.fields);
+            document.getElementById('formContainer').style.display = 'block';
+        }
+
+        // Mostrar formulário de edição
+        function showEditForm(modelKey, item) {
+            currentModel = modelKey;
+            editingId = item._id;
+            const model = models[modelKey];
+            
+            document.getElementById('formTitle').textContent = `Editar ${model.name}`;
+            generateForm(model.fields, item);
+            document.getElementById('formContainer').style.display = 'block';
+        }
+
+        // Gerar formulário dinâmico
+        function generateForm(fields, data = {}) {
+            const container = document.getElementById('formFields');
+            container.innerHTML = '';
+
+            for (const [fieldName, fieldConfig] of Object.entries(fields)) {
+                const group = document.createElement('div');
+                group.className = 'form-group';
+
+                const label = document.createElement('label');
+                label.textContent = fieldConfig.label;
+                if (fieldConfig.required) label.textContent += ' *';
+                group.appendChild(label);
+
+                let input;
+                switch (fieldConfig.type) {
+                    case 'select':
+                        input = document.createElement('select');
+                        input.innerHTML = '<option value="">Selecione...</option>';
+                        fieldConfig.options.forEach(option => {
+                            const optionEl = document.createElement('option');
+                            optionEl.value = option;
+                            optionEl.textContent = option;
+                            if (data[fieldName] === option) optionEl.selected = true;
+                            input.appendChild(optionEl);
+                        });
+                        break;
+                    case 'textarea':
+                        input = document.createElement('textarea');
+                        input.value = data[fieldName] || '';
+                        break;
+                    default:
+                        input = document.createElement('input');
+                        input.type = fieldConfig.type;
+                        input.value = data[fieldName] || '';
+                        if (fieldConfig.min !== undefined) input.min = fieldConfig.min;
+                        if (fieldConfig.max !== undefined) input.max = fieldConfig.max;
+                        if (fieldConfig.step !== undefined) input.step = fieldConfig.step;
+                }
+
+                input.name = fieldName;
+                input.required = fieldConfig.required || false;
+                group.appendChild(input);
+                container.appendChild(group);
+            }
+        }
+
+        // Fechar formulário
+        function closeForm() {
+            document.getElementById('formContainer').style.display = 'none';
+        }
+
+        // Visualizar dados
+        async function viewData(modelKey) {
+            currentModel = modelKey;
+            currentPage = 1;
+            const model = models[modelKey];
+            
+            document.getElementById('dataTitle').textContent = model.name;
+            setupFilters(model);
+            document.getElementById('dataContainer').style.display = 'block';
+            
+            await loadData();
+        }
+
+        // Configurar filtros
+        function setupFilters(model) {
+            const filterSelect = document.getElementById('filterSelect');
+            filterSelect.innerHTML = '<option value="">Todos os tipos</option>';
+            
+            // Adicionar opções de filtro baseadas no tipo
+            if (model.fields.type && model.fields.type.options) {
+                model.fields.type.options.forEach(option => {
+                    const optionEl = document.createElement('option');
+                    optionEl.value = option;
+                    optionEl.textContent = option;
+                    filterSelect.appendChild(optionEl);
+                });
+            }
+        }
+
+        // Carregar dados
+        async function loadData() {
+            const searchTerm = document.getElementById('searchInput').value;
+            const filterType = document.getElementById('filterSelect').value;
+            
+            let url = `${API_BASE}/${currentModel}?page=${currentPage}&limit=10`;
+            if (searchTerm) url += `&name=${encodeURIComponent(searchTerm)}`;
+            if (filterType) url += `&type=${encodeURIComponent(filterType)}`;
+
+            try {
+                document.getElementById('dataContent').innerHTML = '<div class="loading">Carregando...</div>';
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentData = data.data;
+                    totalPages = data.pagination.totalPages;
+                    renderDataTable();
+                    renderPagination();
+                } else {
+                    throw new Error(data.error.message);
+                }
+            } catch (error) {
+                showNotification('Erro ao carregar dados: ' + error.message, 'error');
+            }
+        }
+
+        // Renderizar tabela de dados
+        function renderDataTable() {
+            const container = document.getElementById('dataContent');
+            const model = models[currentModel];
+            
+            if (currentData.length === 0) {
+                container.innerHTML = '<div class="loading">Nenhum item encontrado</div>';
+                return;
+            }
+
+            const table = document.createElement('table');
+            table.className = 'data-table';
+            
+            // Cabeçalho
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+            
+            Object.keys(model.fields).forEach(field => {
+                const th = document.createElement('th');
+                th.textContent = model.fields[field].label;
+                headerRow.appendChild(th);
+            });
+            
+            const actionsHeader = document.createElement('th');
+            actionsHeader.textContent = 'Ações';
+            headerRow.appendChild(actionsHeader);
+            
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+            
+            // Corpo da tabela
+            const tbody = document.createElement('tbody');
+            currentData.forEach(item => {
+                const row = document.createElement('tr');
+                
+                Object.keys(model.fields).forEach(field => {
+                    const td = document.createElement('td');
+                    let value = item[field];
+                    
+                    // Truncar texto longo
+                    if (typeof value === 'string' && value.length > 50) {
+                        value = value.substring(0, 50) + '...';
+                    }
+                    
+                    td.textContent = value || '-';
+                    row.appendChild(td);
+                });
+                
+                // Ações
+                const actionsTd = document.createElement('td');
+                actionsTd.innerHTML = `
+                    <div style="display: flex; gap: 5px;">
+                        <button class="btn btn-warning" onclick="showEditForm('${currentModel}', ${JSON.stringify(item).replace(/"/g, '&quot;')})">
+                            ✏️
+                        </button>
+                        <button class="btn btn-danger" onclick="deleteItem('${item._id}')">
+                            🗑️
+                        </button>
+                    </div>
+                `;
+                row.appendChild(actionsTd);
+                tbody.appendChild(row);
+            });
+            
+            table.appendChild(tbody);
+            container.innerHTML = '';
+            container.appendChild(table);
+        }
+
+        // Renderizar paginação
+        function renderPagination() {
+            const container = document.getElementById('pagination');
+            container.innerHTML = '';
+            
+            // Botão anterior
+            const prevBtn = document.createElement('button');
+            prevBtn.textContent = '◀ Anterior';
+            prevBtn.disabled = currentPage === 1;
+            prevBtn.onclick = () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    loadData();
+                }
+            };
+            container.appendChild(prevBtn);
+            
+            // Números das páginas
+            for (let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) {
+                const pageBtn = document.createElement('button');
+                pageBtn.textContent = i;
+                pageBtn.className = i === currentPage ? 'active' : '';
+                pageBtn.onclick = () => {
+                    currentPage = i;
+                    loadData();
+                };
+                container.appendChild(pageBtn);
+            }
+            
+            // Botão próximo
+            const nextBtn = document.createElement('button');
+            nextBtn.textContent = 'Próximo ▶';
+            nextBtn.disabled = currentPage === totalPages;
+            nextBtn.onclick = () => {
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    loadData();
+                }
+            };
+            container.appendChild(nextBtn);
+        }
+
+        // Buscar dados
+        function searchData() {
+            currentPage = 1;
+            loadData();
+        }
+
+        // Fechar visualização de dados
+        function closeDataView() {
+            document.getElementById('dataContainer').style.display = 'none';
+        }
+
+        // Enviar formulário
+        async function submitForm(event) {
+            event.preventDefault();
+            
+            const formData = new FormData(event.target);
+            const data = Object.fromEntries(formData);
+            
+            // Converter números
+            const model = models[currentModel];
+            Object.keys(data).forEach(key => {
+                if (model.fields[key] && model.fields[key].type === 'number') {
+                    data[key] = parseFloat(data[key]);
+                }
+            });
+            
+            try {
+                let url = `${API_BASE}/${currentModel}`;
+                let method = 'POST';
+                
+                if (editingId) {
+                    url += `/${editingId}`;
+                    method = 'PUT';
+                }
+                
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showNotification(result.message || 'Item deletado com sucesso!', 'success');
+                    loadModelCards(); // Atualizar contadores
+                    loadData(); // Atualizar tabela
+                } else {
+                    throw new Error(result.error.message || 'Erro ao deletar');
+                }
+            } catch (error) {
+                showNotification('Erro: ' + error.message, 'error');
+            }
+        }
+
+        // Mostrar notificação
+        function showNotification(message, type) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.style.display = 'block';
+            
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 5000);
+        }
+
+        // Event listeners
+        document.getElementById('dynamicForm').addEventListener('submit', submitForm);
+        
+        document.getElementById('searchInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                searchData();
+            }
+        });
+
+        // Inicializar quando a página carregar
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>) {
+                    showNotification(result.message || 'Operação realizada com sucesso!', 'success');
+                    closeForm();
+                    loadModelCards(); // Atualizar contadores
+                    if (document.getElementById('dataContainer').style.display === 'block') {
+                        loadData(); // Atualizar tabela se estiver aberta
+                    }
+                } else {
+                    throw new Error(result.error.message || 'Erro na operação');
+                }
+            } catch (error) {
+                showNotification('Erro: ' + error.message, 'error');
+            }
+        }
+
+        // Deletar item
+        async function deleteItem(id) {
+            if (!confirm('Tem certeza que deseja deletar este item?')) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/${currentModel}/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success
