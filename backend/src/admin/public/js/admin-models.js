@@ -79,14 +79,16 @@ class AdminModels {
         fields: [
           { key: 'armorRating', icon: '🛡️', label: 'Proteção' },
           { key: 'speed', icon: '⚡', label: 'Velocidade', unit: '%' },
-          { key: 'staminaRegen', icon: '💪', label: 'Stamina', unit: '%' }
+          { key: 'staminaRegen', icon: '💪', label: 'Stamina', unit: '%' },
+          { key: 'passive', icon: '🌀', label: 'Passiva' }
         ],
         formFields: ['armorRating', 'speed', 'staminaRegen'],
         selectOptions: [
           { value: 'Light', label: 'Light' },
           { value: 'Medium', label: 'Medium' },
           { value: 'Heavy', label: 'Heavy' }
-        ]
+        ],
+        extraSelectFields: ['passive']
       },
       'passive-armors': {
         name: 'Passivas de Armadura',
@@ -117,6 +119,24 @@ class AdminModels {
     this.executeDelete = this.executeDelete.bind(this);
     this.saveNewItem = this.saveNewItem.bind(this);
     this.saveEditedItem = this.saveEditedItem.bind(this);
+    this.generateFormFields = this.generateFormFields.bind(this);
+    this.fetchPassiveOptions = this.fetchPassiveOptions.bind(this);
+  }
+
+  async fetchPassiveOptions() {
+    try {
+      const res = await fetch('/api/passive-armors');
+      const json = await res.json();
+      if (json.success) {
+        return json.data.map(p => ({
+          value: p._id,
+          label: p.name
+        }));
+      }
+    } catch (e) {
+      console.error('Erro ao buscar passivas:', e);
+    }
+    return [];
   }
 
   // === HELPERS PARA ACESSAR OUTRAS INSTÂNCIAS ===
@@ -328,8 +348,8 @@ class AdminModels {
     this.showAddItemModal(modelKey, config);
   }
 
-  showAddItemModal(modelKey, config) {
-    const formFields = this.generateFormFields(config);
+  async showAddItemModal(modelKey, config) {
+    const formFields = await this.generateFormFields(config);
 
     const modalHTML = `
       <div id="addItemModal" class="modal add-item-modal">
@@ -456,8 +476,8 @@ class AdminModels {
     this.showEditItemModal(modelKey, itemId, itemData, config);
   }
 
-  showEditItemModal(modelKey, itemId, itemData, config) {
-    const formFields = this.generateFormFields(config, itemData);
+  async showEditItemModal(modelKey, itemId, itemData, config) {
+    const formFields = await this.generateFormFields(config, itemData);
 
     const modalHTML = `
       <div id="editItemModal" class="modal add-item-modal">
@@ -660,7 +680,7 @@ class AdminModels {
   }
 
   // === GERAÇÃO DE FORMULÁRIOS ===
-  generateFormFields(config, existingData = {}) {
+  async generateFormFields(config, existingData = {}) {
     let html = `
       <div class="form-group">
         <label for="itemName" class="required">Nome</label>
@@ -727,6 +747,28 @@ class AdminModels {
           </div>
         `;
       });
+    }
+
+    // Campos de seleção extras (como passivas)
+    if (config.extraSelectFields) {
+      for (const field of config.extraSelectFields) {
+        if (field === 'passive') {
+          const passiveOptions = await this.fetchPassiveOptions();
+          const currentValue = existingData.passive?._id || existingData.passive || '';
+
+          html += `
+            <div class="form-group">
+              <label for="item${field}">Passiva</label>
+              <select id="item${field}" name="${field}">
+                <option value="">Nenhuma</option>
+                ${passiveOptions.map(opt => `
+                  <option value="${opt.value}" ${opt.value === currentValue ? 'selected' : ''}>${opt.label}</option>
+                `).join('')}
+              </select>
+            </div>
+          `;
+        }
+      }
     }
 
     return html;
