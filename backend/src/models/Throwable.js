@@ -34,6 +34,19 @@ const throwableSchema = new mongoose.Schema({
     required: [true, 'Descrição é obrigatória'],
     trim: true,
     maxlength: [500, 'Descrição deve ter no máximo 500 caracteres']
+  },
+  // 🖼️ CAMPO DE IMAGEM
+  image: {
+    type: String,
+    required: false,
+    trim: true,
+    validate: {
+      validator: function (v) {
+        if (!v) return true;
+        return /^(https?:\/\/)|(\/uploads\/)|(data:image\/)/.test(v);
+      },
+      message: 'Image deve ser uma URL válida ou caminho de arquivo'
+    }
   }
 }, {
   timestamps: true,
@@ -50,6 +63,23 @@ throwableSchema.virtual('blastArea').get(function () {
 throwableSchema.virtual('damagePerArea').get(function () {
   const area = this.blastArea;
   return area > 0 ? Math.round((this.damage / area) * 100) / 100 : 0;
+});
+
+// 🖼️ Virtual para URL da imagem
+throwableSchema.virtual('imageUrl').get(function () {
+  if (this.image) {
+    if (this.image.startsWith('http') || this.image.startsWith('data:')) {
+      return this.image;
+    }
+    return `/uploads/throwables/${this.image}`;
+  }
+  // Imagem padrão baseada no tipo
+  const defaultImages = {
+    'Frag Grenade': '/assets/images/throwable-frag-default.webp',
+    'Incendiary': '/assets/images/throwable-incendiary-default.webp',
+    'Anti-Tank': '/assets/images/throwable-antitank-default.webp'
+  };
+  return defaultImages[this.type] || '/assets/images/throwable-default.webp';
 });
 
 // 🔍 Índices para performance

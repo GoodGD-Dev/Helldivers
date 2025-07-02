@@ -13,6 +13,9 @@ const errorHandler = require('./middleware/errorHandler');
 const rateLimiter = require('./middleware/rateLimiter');
 const adminRoutes = require('./admin/routes');
 
+// 📸 IMPORTAR ROTAS DE IMAGEM
+const imageRoutes = require('./routes/images');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -78,10 +81,26 @@ app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// === ARQUIVOS ESTÁTICOS DO ADMIN - CONFIGURAÇÃO CORRIGIDA ===
+// === ARQUIVOS ESTÁTICOS ===
 
-// IMPORTANTE: As rotas das controllers do admin já lidam com CSS/JS
-// Aqui servimos apenas arquivos extras se necessário
+// 📁 SERVIR ARQUIVOS DE UPLOAD (ANTES DO ADMIN)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+  maxAge: process.env.NODE_ENV === 'production' ? '7d' : '0',
+  etag: true,
+  lastModified: true,
+  setHeaders: (res, filePath) => {
+    // Security headers para uploads
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+
+    // Cache headers para imagens
+    if (/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(filePath)) {
+      res.setHeader('Cache-Control', 'public, max-age=604800'); // 7 dias
+    }
+  }
+}));
+
+// ARQUIVOS ESTÁTICOS DO ADMIN
 app.use('/admin/assets', express.static(path.join(__dirname, 'admin/public'), {
   maxAge: process.env.NODE_ENV === 'production' ? '1d' : '0',
   etag: true,
@@ -127,12 +146,16 @@ app.get('/health', (req, res) => {
     version: '1.0.0',
     services: {
       database: 'connected',
-      admin: 'active'
+      admin: 'active',
+      uploads: 'enabled'
     }
   });
 });
 
-// Admin routes ANTES da API para ter prioridade
+// 📸 ROTAS PARA UPLOAD DE IMAGENS (ADMIN API)
+app.use('/admin/api', imageRoutes);
+
+// Admin routes
 app.use('/admin', adminRoutes);
 
 // API routes
@@ -166,10 +189,17 @@ app.get('/', (req, res) => {
       features: [
         'Dashboard com estatísticas em tempo real',
         'CRUD completo para todos os modelos',
+        'Upload de imagens para todos os itens',
         'Interface responsiva e moderna',
         'Autenticação integrada',
         'Exportação de dados'
       ]
+    },
+    uploads: {
+      endpoint: '/admin/api/upload-image',
+      maxSize: '5MB',
+      formats: ['JPG', 'PNG', 'WebP', 'GIF'],
+      storage: '/uploads/{modelKey}/'
     },
     status: {
       environment: process.env.NODE_ENV || 'development',
@@ -200,7 +230,8 @@ app.use('*', (req, res) => {
       api: '/api/*',
       admin: '/admin',
       docs: '/api/docs',
-      health: '/health'
+      health: '/health',
+      uploads: '/uploads/*'
     }
   });
 });
@@ -215,6 +246,9 @@ const startServer = async () => {
     await connectDatabase();
     console.log('✅ Banco de dados conectado com sucesso');
 
+    // 📁 CRIAR ESTRUTURA DE PASTAS DE UPLOAD
+    await createUploadDirectories();
+
     const server = app.listen(PORT, () => {
       console.log('\n' + '='.repeat(60));
       console.log('🚀 HELLDIVERS 2 API - SERVIDOR INICIADO');
@@ -227,35 +261,17 @@ const startServer = async () => {
       console.log(`   ⚙️  Admin Panel: http://localhost:${PORT}/admin`);
       console.log(`   📚 Documentação: http://localhost:${PORT}/api/docs`);
       console.log(`   🏥 Health Check: http://localhost:${PORT}/health`);
+      console.log(`   📁 Uploads: http://localhost:${PORT}/uploads/`);
 
       if (process.env.NODE_ENV === 'production') {
         console.log('\n🔐 SEGURANÇA:');
         console.log(`   Admin protegido com Basic Auth`);
-        console.log(`   👤 Username: ${process.env.ADMIN_USERNAME || 'admin'}`);
-        console.log(`   🔑 Password: ${process.env.ADMIN_PASSWORD ? '[CONFIGURADO]' : 'helldivers123'}`);
-        console.log(`   🛡️  CSP configurado adequadamente`);
       } else {
         console.log('\n🔓 DESENVOLVIMENTO:');
         console.log(`   Admin sem autenticação (desenvolvimento)`);
         console.log(`   Configure ADMIN_AUTH=true para ativar autenticação`);
         console.log(`   🛡️  CSP configurado para desenvolvimento`);
       }
-
-      console.log('\n💡 CORREÇÕES APLICADAS:');
-      console.log(`   ✅ MIME types corretos para JS (application/javascript)`);
-      console.log(`   ✅ MIME types corretos para CSS (text/css)`);
-      console.log(`   ✅ Rotas /admin/assets/js/ e /admin/assets/css/ configuradas`);
-      console.log(`   ✅ Content-Type-Options nosniff aplicado`);
-      console.log(`   ✅ CSP permitindo scripts inline quando necessário`);
-
-      console.log('\n🔧 ESTRUTURA DE ARQUIVOS ESPERADA:');
-      console.log(`   src/admin/public/js/admin-core.js`);
-      console.log(`   src/admin/public/js/admin-utils.js`);
-      console.log(`   src/admin/public/js/admin-dashboard.js`);
-      console.log(`   src/admin/public/js/admin-models.js`);
-      console.log(`   src/admin/public/js/admin.js`);
-      console.log(`   src/admin/public/css/admin.css`);
-      console.log('='.repeat(60) + '\n');
     });
 
     setupGracefulShutdown(server);
@@ -279,6 +295,32 @@ const startServer = async () => {
     process.exit(1);
   }
 };
+
+// 📁 CRIAR ESTRUTURA DE PASTAS DE UPLOAD
+async function createUploadDirectories() {
+  const fs = require('fs').promises;
+
+  const uploadPaths = [
+    'uploads',
+    'uploads/armors',
+    'uploads/primary-weapons',
+    'uploads/secondary-weapons',
+    'uploads/throwables',
+    'uploads/stratagems',
+    'uploads/passive-armors',
+    'uploads/perks'
+  ];
+
+  try {
+    for (const uploadPath of uploadPaths) {
+      const fullPath = path.join(__dirname, uploadPath);
+      await fs.mkdir(fullPath, { recursive: true });
+    }
+    console.log('📁 Estrutura de pastas de upload criada com sucesso');
+  } catch (error) {
+    console.warn('⚠️  Aviso ao criar pastas de upload:', error.message);
+  }
+}
 
 // Configurar encerramento gracioso
 function setupGracefulShutdown(server) {

@@ -1,4 +1,3 @@
-// 🔫 Controller para Armas Secundárias
 const SecondaryWeapon = require('../models/SecondaryWeapon');
 const { HTTP_STATUS, ERROR_MESSAGES, SUCCESS_MESSAGES } = require('../utils/constants');
 

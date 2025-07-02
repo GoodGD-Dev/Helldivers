@@ -23,6 +23,13 @@ const secondaryWeaponSchema = new mongoose.Schema({
     min: [0, 'Dano não pode ser negativo'],
     max: [10000, 'Dano não pode exceder 10000']
   },
+  // 🔥 ADICIONAR CAMPO FIRE RATE QUE ESTAVA FALTANDO
+  fireRate: {
+    type: Number,
+    required: [true, 'Taxa de disparo é obrigatória'],
+    min: [0, 'Taxa de disparo não pode ser negativa'],
+    max: [2000, 'Taxa de disparo não pode exceder 2000']
+  },
   magazineSize: {
     type: Number,
     required: [true, 'Tamanho do carregador é obrigatório'],
@@ -40,6 +47,19 @@ const secondaryWeaponSchema = new mongoose.Schema({
     required: [true, 'Descrição é obrigatória'],
     trim: true,
     maxlength: [500, 'Descrição deve ter no máximo 500 caracteres']
+  },
+  // 🖼️ CAMPO DE IMAGEM
+  image: {
+    type: String,
+    required: false,
+    trim: true,
+    validate: {
+      validator: function (v) {
+        if (!v) return true;
+        return /^(https?:\/\/)|(\/uploads\/)|(data:image\/)/.test(v);
+      },
+      message: 'Image deve ser uma URL válida ou caminho de arquivo'
+    }
   }
 }, {
   timestamps: true,
@@ -47,9 +67,31 @@ const secondaryWeaponSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
+// 📊 Virtual para DPS (Damage Per Second) - ADICIONADO
+secondaryWeaponSchema.virtual('dps').get(function () {
+  return Math.round((this.damage * this.fireRate / 60) * 100) / 100;
+});
+
 // 📊 Virtual para Damage Per Magazine
 secondaryWeaponSchema.virtual('damagePerMagazine').get(function () {
   return this.damage * this.magazineSize;
+});
+
+// 🖼️ Virtual para URL da imagem
+secondaryWeaponSchema.virtual('imageUrl').get(function () {
+  if (this.image) {
+    if (this.image.startsWith('http') || this.image.startsWith('data:')) {
+      return this.image;
+    }
+    return `/uploads/secondary-weapons/${this.image}`;
+  }
+  // Imagem padrão baseada no tipo
+  const defaultImages = {
+    'Pistol': '/assets/images/secondary-pistol-default.webp',
+    'Revolver': '/assets/images/secondary-revolver-default.webp',
+    'Auto Pistol': '/assets/images/secondary-auto-default.webp'
+  };
+  return defaultImages[this.type] || '/assets/images/secondary-weapon-default.webp';
 });
 
 // 🔍 Índices para performance

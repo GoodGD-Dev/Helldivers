@@ -34,6 +34,19 @@ const stratagemSchema = new mongoose.Schema({
     required: [true, 'Descrição é obrigatória'],
     trim: true,
     maxlength: [500, 'Descrição deve ter no máximo 500 caracteres']
+  },
+  // 🖼️ CAMPO DE IMAGEM
+  image: {
+    type: String,
+    required: false,
+    trim: true,
+    validate: {
+      validator: function (v) {
+        if (!v) return true;
+        return /^(https?:\/\/)|(\/uploads\/)|(data:image\/)/.test(v);
+      },
+      message: 'Image deve ser uma URL válida ou caminho de arquivo'
+    }
   }
 }, {
   timestamps: true,
@@ -54,6 +67,23 @@ stratagemSchema.virtual('cooldownRating').get(function () {
   if (this.cooldown <= 120) return 'Médio';
   if (this.cooldown <= 300) return 'Lento';
   return 'Muito Lento';
+});
+
+// 🖼️ Virtual para URL da imagem
+stratagemSchema.virtual('imageUrl').get(function () {
+  if (this.image) {
+    if (this.image.startsWith('http') || this.image.startsWith('data:')) {
+      return this.image;
+    }
+    return `/uploads/stratagems/${this.image}`;
+  }
+  // Imagem padrão baseada na categoria
+  const defaultImages = {
+    'Defensive': '/assets/images/stratagem-defensive-default.webp',
+    'Offensive': '/assets/images/stratagem-offensive-default.webp',
+    'Supply': '/assets/images/stratagem-supply-default.webp'
+  };
+  return defaultImages[this.category] || '/assets/images/stratagem-default.webp';
 });
 
 // 🔍 Índices para performance

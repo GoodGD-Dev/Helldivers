@@ -18,13 +18,41 @@ class AdminUtils {
     this.executeConfirmAction = this.executeConfirmAction.bind(this);
   }
 
+  // === HELPERS PARA ACESSAR OUTRAS INSTÂNCIAS ===
+  getAdminCore() {
+    if (window.AdminSystem?.core) {
+      return window.AdminSystem.core;
+    }
+    if (window.adminApp?.core) {
+      return window.adminApp.core;
+    }
+    if (window.AdminSystemApp?.core) {
+      return window.AdminSystemApp.core;
+    }
+    return null;
+  }
+
+  getAdminDashboard() {
+    if (window.AdminSystem?.dashboard) {
+      return window.AdminSystem.dashboard;
+    }
+    if (window.adminApp?.dashboard) {
+      return window.adminApp.dashboard;
+    }
+    if (window.AdminSystemApp?.dashboard) {
+      return window.AdminSystemApp.dashboard;
+    }
+    return null;
+  }
+
   // === NOTIFICAÇÕES ===
   showNotification(message, type = 'info', duration = 5000) {
     // Obter configurações de forma segura
     let settings = { notifications: true, devMode: false };
     try {
-      if (window.AdminSystem?.core?.getSettings) {
-        settings = window.AdminSystem.core.getSettings();
+      const core = this.getAdminCore();
+      if (core?.getSettings) {
+        settings = core.getSettings();
       } else if (localStorage.getItem('adminSettings')) {
         settings = { ...settings, ...JSON.parse(localStorage.getItem('adminSettings')) };
       }
@@ -51,9 +79,18 @@ class AdminUtils {
 
     container.appendChild(notification);
 
+    // Auto-remover
     setTimeout(() => {
       if (notification.parentNode) notification.remove();
     }, duration);
+
+    // Event listener para botão fechar
+    const closeBtn = notification.querySelector('.notification-close');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        notification.remove();
+      });
+    }
 
     if (settings.devMode) {
       console.log(`📢 Notificação [${type}]: ${message}`);
@@ -233,8 +270,9 @@ class AdminUtils {
     // Obter configurações de forma segura
     let settings = { autoRefresh: false, darkTheme: true, notifications: true, devMode: false };
     try {
-      if (window.AdminSystem?.core?.getSettings) {
-        settings = window.AdminSystem.core.getSettings();
+      const core = this.getAdminCore();
+      if (core?.getSettings) {
+        settings = core.getSettings();
       } else if (localStorage.getItem('adminSettings')) {
         settings = { ...settings, ...JSON.parse(localStorage.getItem('adminSettings')) };
       }
@@ -266,9 +304,10 @@ class AdminUtils {
 
     // Salvar configurações de forma segura
     try {
-      if (window.AdminSystem?.core) {
-        window.AdminSystem.core.setSettings(settings);
-        window.AdminSystem.core.applySettings(settings);
+      const core = this.getAdminCore();
+      if (core) {
+        core.setSettings(settings);
+        core.applySettings(settings);
       } else {
         localStorage.setItem('adminSettings', JSON.stringify(settings));
         this.applySettingsFallback(settings);
@@ -338,16 +377,17 @@ class AdminUtils {
     console.log('🔄 Sincronizando dados...');
 
     // Mostrar loading de forma segura
-    if (window.AdminSystem?.core?.showLoading) {
-      window.AdminSystem.core.showLoading();
+    const core = this.getAdminCore();
+    if (core?.showLoading) {
+      core.showLoading();
     }
 
     try {
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       // Fazer refresh de forma segura
-      if (window.AdminSystem?.core?.refresh) {
-        await window.AdminSystem.core.refresh();
+      if (core?.refresh) {
+        await core.refresh();
       }
 
       this.showNotification('Dados sincronizados com sucesso!', 'success');
@@ -356,8 +396,8 @@ class AdminUtils {
       this.showNotification('Erro ao sincronizar dados', 'error');
     } finally {
       // Esconder loading de forma segura
-      if (window.AdminSystem?.core?.hideLoading) {
-        window.AdminSystem.core.hideLoading();
+      if (core?.hideLoading) {
+        core.hideLoading();
       }
     }
   }
@@ -367,8 +407,9 @@ class AdminUtils {
 
     try {
       // Mostrar loading de forma segura
-      if (window.AdminSystem?.core?.showLoading) {
-        window.AdminSystem.core.showLoading();
+      const core = this.getAdminCore();
+      if (core?.showLoading) {
+        core.showLoading();
       }
 
       await new Promise(resolve => setTimeout(resolve, 1500));
@@ -376,7 +417,7 @@ class AdminUtils {
       // Obter informações da sessão de forma segura
       let sessionInfo = null;
       try {
-        sessionInfo = window.AdminSystem?.core?.state?.sessionInfo;
+        sessionInfo = core?.state?.sessionInfo;
       } catch (error) {
         // Usar dados padrão se não conseguir obter da sessão
       }
@@ -407,8 +448,9 @@ class AdminUtils {
       this.showNotification('Erro ao exportar dados', 'error');
     } finally {
       // Esconder loading de forma segura
-      if (window.AdminSystem?.core?.hideLoading) {
-        window.AdminSystem.core.hideLoading();
+      const core = this.getAdminCore();
+      if (core?.hideLoading) {
+        core.hideLoading();
       }
     }
   }
@@ -448,8 +490,9 @@ class AdminUtils {
     // Obter configurações de forma segura para debug
     let devMode = false;
     try {
-      if (window.AdminSystem?.core?.getSettings) {
-        devMode = window.AdminSystem.core.getSettings().devMode;
+      const core = this.getAdminCore();
+      if (core?.getSettings) {
+        devMode = core.getSettings().devMode;
       } else if (localStorage.getItem('adminSettings')) {
         const settings = JSON.parse(localStorage.getItem('adminSettings'));
         devMode = settings.devMode;

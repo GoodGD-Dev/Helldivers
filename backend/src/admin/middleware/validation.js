@@ -1,4 +1,3 @@
-// Validação de parâmetros de rota
 const validateRouteParams = (req, res, next) => {
   const { model, id } = req.params;
 

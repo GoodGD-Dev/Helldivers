@@ -1,4 +1,3 @@
-// 🔫 Controller para Armas Primárias
 const PrimaryWeapon = require('../models/PrimaryWeapon');
 const { HTTP_STATUS, ERROR_MESSAGES, SUCCESS_MESSAGES } = require('../utils/constants');
 

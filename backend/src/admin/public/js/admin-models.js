@@ -1,5 +1,3 @@
-// Gerenciamento CRUD dos modelos - Create, Read, Update, Delete
-
 class AdminModels {
   constructor() {
     this.deleteItem = null; // Para armazenar item sendo deletado
@@ -121,6 +119,7 @@ class AdminModels {
     this.saveEditedItem = this.saveEditedItem.bind(this);
     this.generateFormFields = this.generateFormFields.bind(this);
     this.fetchPassiveOptions = this.fetchPassiveOptions.bind(this);
+    this.uploadImage = this.uploadImage.bind(this);
   }
 
   async fetchPassiveOptions() {
@@ -150,6 +149,69 @@ class AdminModels {
 
   getAdminDashboard() {
     return window.AdminSystem?.dashboard || null;
+  }
+
+  // === UPLOAD DE IMAGEM ===
+  async uploadImage(file, modelKey) {
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('modelKey', modelKey);
+
+    const response = await fetch('/admin/api/upload-image', {
+      method: 'POST',
+      body: formData
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.error?.message || 'Erro no upload da imagem');
+    }
+
+    return result.data.imageUrl;
+  }
+
+  // === DELETAR IMAGEM ===
+  async deleteImage(imageUrl) {
+    if (!imageUrl) {
+      console.warn('⚠️ deleteImage: URL da imagem está vazia');
+      return;
+    }
+
+    console.log(`🖼️ deleteImage: Tentando deletar imagem: ${imageUrl}`);
+
+    // Só deletar imagens que estão no nosso sistema de uploads
+    if (!imageUrl.includes('/uploads/')) {
+      console.log('🔗 deleteImage: URL externa detectada, não deletando:', imageUrl);
+      return; // Não deletar URLs externas
+    }
+
+    try {
+      console.log('📡 deleteImage: Fazendo requisição para /admin/api/delete-image');
+
+      const response = await fetch('/admin/api/delete-image', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ imageUrl })
+      });
+
+      console.log(`📋 deleteImage: Status da resposta: ${response.status}`);
+
+      const result = await response.json();
+      console.log('📄 deleteImage: Resposta completa:', result);
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error?.message || 'Erro ao deletar imagem');
+      }
+
+      console.log('✅ deleteImage: Imagem deletada com sucesso');
+      return result;
+    } catch (error) {
+      console.error('❌ deleteImage: Erro na requisição:', error);
+      throw error;
+    }
   }
 
   // === VISUALIZAÇÃO DE MODELOS ===
@@ -238,9 +300,22 @@ class AdminModels {
     return `
       <div class="model-item">
         <div class="model-item-header">
-          <h5>${item.name || 'Item ' + (index + 1)}</h5>
+          <div class="item-header-content">
+            ${item.imageUrl || item.image ? `
+              <div class="item-image-preview">
+                <img src="${item.imageUrl || item.image}" alt="${item.name}" loading="lazy">
+              </div>
+            ` : `
+              <div class="item-image-placeholder">
+                ${config.icon || '📦'}
+              </div>
+            `}
+            <div class="item-header-text">
+              <h5>${item.name || 'Item ' + (index + 1)}</h5>
+              <span class="model-item-id">#${item._id ? item._id.slice(-6) : 'N/A'}</span>
+            </div>
+          </div>
           <div class="model-item-actions">
-            <span class="model-item-id">#${item._id ? item._id.slice(-6) : 'N/A'}</span>
             <button class="btn btn-sm btn-warning item-edit-btn" 
                     data-model="${modelKey}" 
                     data-id="${item._id}" 
@@ -411,7 +486,40 @@ class AdminModels {
     if (!form) return;
 
     const utils = this.getAdminUtils();
-    const data = utils ? utils.getFormData(form) : this.getFormData(form);
+
+    // Verificar se há arquivo de imagem
+    const imageFile = form.querySelector('input[type="file"][name="image"]')?.files[0];
+    let data = utils ? this.getFormDataFromUtils(form) : this.getFormData(form);
+
+    // 🐛 DEBUG: Mostrar dados que estão sendo enviados
+    console.log('🔍 Dados being enviados:', data);
+    console.log('🔍 Para o modelo:', modelKey);
+
+    // 🔧 Filtrar apenas campos válidos para este modelo
+    data = this.filterValidFields(data, modelKey);
+    console.log('🔍 Dados após filtro:', data);
+
+    // Se há imagem, fazer upload primeiro
+    if (imageFile) {
+      try {
+        if (utils) {
+          utils.showNotification('📤 Fazendo upload da imagem...', 'info', 3000);
+        }
+
+        const uploadedImageUrl = await this.uploadImage(imageFile, modelKey);
+        data.image = uploadedImageUrl;
+
+        if (utils) {
+          utils.showNotification('✅ Imagem enviada com sucesso!', 'success', 2000);
+        }
+      } catch (error) {
+        if (utils) {
+          utils.showNotification('❌ Erro ao fazer upload da imagem: ' + error.message, 'error');
+        }
+        return;
+      }
+    }
+
     const validation = utils ? utils.validateFormData(data) : { isValid: true, errors: [] };
 
     if (!validation.isValid) {
@@ -541,7 +649,32 @@ class AdminModels {
     if (!form) return;
 
     const utils = this.getAdminUtils();
-    const data = utils ? utils.getFormData(form) : this.getFormData(form);
+
+    // Verificar se há arquivo de imagem
+    const imageFile = form.querySelector('input[type="file"][name="image"]')?.files[0];
+    let data = utils ? this.getFormDataFromUtils(form) : this.getFormData(form);
+
+    // Se há imagem, fazer upload primeiro
+    if (imageFile) {
+      try {
+        if (utils) {
+          utils.showNotification('📤 Fazendo upload da imagem...', 'info', 3000);
+        }
+
+        const uploadedImageUrl = await this.uploadImage(imageFile, modelKey);
+        data.image = uploadedImageUrl;
+
+        if (utils) {
+          utils.showNotification('✅ Imagem enviada com sucesso!', 'success', 2000);
+        }
+      } catch (error) {
+        if (utils) {
+          utils.showNotification('❌ Erro ao fazer upload da imagem: ' + error.message, 'error');
+        }
+        return;
+      }
+    }
+
     const validation = utils ? utils.validateFormData(data) : { isValid: true, errors: [] };
 
     if (!validation.isValid) {
@@ -629,6 +762,29 @@ class AdminModels {
         core.showLoading();
       }
 
+      console.log(`🗑️ Iniciando exclusão do item: ${itemName} (${itemId})`);
+
+      // 1. Primeiro buscar o item para pegar a URL da imagem
+      let itemImageUrl = null;
+      try {
+        console.log(`🔍 Buscando dados do item em: /api/${modelKey}/${itemId}`);
+        const itemResponse = await fetch(`/api/${modelKey}/${itemId}`);
+        const itemData = await itemResponse.json();
+
+        console.log('📄 Dados do item obtidos:', itemData);
+
+        if (itemData.success && (itemData.data.image || itemData.data.imageUrl)) {
+          itemImageUrl = itemData.data.image || itemData.data.imageUrl;
+          console.log(`🖼️ Imagem encontrada para deletar: ${itemImageUrl}`);
+        } else {
+          console.log('📷 Nenhuma imagem encontrada no item');
+        }
+      } catch (error) {
+        console.warn('⚠️ Não foi possível obter dados da imagem:', error);
+      }
+
+      // 2. Deletar o item
+      console.log(`🗑️ Deletando item da API: /api/${modelKey}/${itemId}`);
       const response = await fetch(`/api/${modelKey}/${itemId}`, {
         method: 'DELETE',
         headers: {
@@ -637,10 +793,29 @@ class AdminModels {
       });
 
       const result = await response.json();
+      console.log('📋 Resultado da exclusão do item:', result);
 
       if (response.ok && result.success) {
-        if (utils) {
-          utils.showNotification(`"${itemName}" excluído com sucesso!`, 'success');
+        // 3. Se o item foi deletado com sucesso, deletar a imagem também
+        if (itemImageUrl) {
+          try {
+            console.log(`🖼️ Tentando deletar imagem: ${itemImageUrl}`);
+            await this.deleteImage(itemImageUrl);
+            console.log('✅ Imagem deletada junto com o item');
+
+            if (utils) {
+              utils.showNotification(`"${itemName}" e sua imagem excluídos com sucesso!`, 'success');
+            }
+          } catch (imageError) {
+            console.error('❌ Erro ao deletar imagem:', imageError);
+            if (utils) {
+              utils.showNotification(`"${itemName}" excluído, mas houve erro ao deletar a imagem`, 'warning');
+            }
+          }
+        } else {
+          if (utils) {
+            utils.showNotification(`"${itemName}" excluído com sucesso!`, 'success');
+          }
         }
 
         // Recarregar dashboard
@@ -657,6 +832,7 @@ class AdminModels {
           this.viewModel(modelKey); // Reabrir modal atualizado
         }
       } else {
+        console.error('❌ Erro ao deletar item:', result);
         if (utils) {
           utils.showNotification(
             result.error?.message || 'Erro ao excluir item',
@@ -665,7 +841,7 @@ class AdminModels {
         }
       }
     } catch (error) {
-      console.error('Erro ao excluir item:', error);
+      console.error('❌ Erro geral ao excluir item:', error);
       const utils = this.getAdminUtils();
       if (utils) {
         utils.showNotification('Erro ao conectar com o servidor', 'error');
@@ -689,6 +865,17 @@ class AdminModels {
       <div class="form-group">
         <label for="itemDescription" class="required">Descrição</label>
         <textarea id="itemDescription" name="description" required rows="3">${existingData.description || ''}</textarea>
+      </div>
+      <div class="form-group">
+        <label for="itemImage">🖼️ Imagem</label>
+        <input type="file" id="itemImage" name="image" accept="image/*">
+        ${existingData.image || existingData.imageUrl ? `
+          <div class="current-image-preview">
+            <p>Imagem atual:</p>
+            <img src="${existingData.imageUrl || existingData.image}" alt="Preview" style="max-width: 100px; max-height: 100px; object-fit: cover; border-radius: 4px;">
+          </div>
+        ` : ''}
+        <small>Formatos aceitos: JPG, PNG, WebP (máx. 5MB)</small>
       </div>
     `;
 
@@ -781,10 +968,58 @@ class AdminModels {
     const numberFields = ['damage', 'fireRate', 'magazineSize', 'reloadTime', 'blastRadius', 'cooldown', 'uses', 'armorRating', 'speed', 'staminaRegen'];
 
     for (let [key, value] of formData.entries()) {
+      // 🚫 NUNCA incluir o campo File nos dados
+      if (key === 'image') {
+        continue; // Pular completamente o campo image
+      }
       data[key] = numberFields.includes(key) && value ? parseFloat(value) : value || undefined;
     }
 
     return data;
+  }
+
+  // === HELPERS PARA FORMULÁRIOS (AdminUtils) ===
+  getFormDataFromUtils(form) {
+    const formData = new FormData(form);
+    const data = {};
+    const numberFields = [
+      'damage', 'fireRate', 'magazineSize', 'reloadTime',
+      'blastRadius', 'cooldown', 'uses', 'armorRating',
+      'speed', 'staminaRegen'
+    ];
+
+    for (let [key, value] of formData.entries()) {
+      // 🚫 NUNCA incluir o campo File nos dados
+      if (key === 'image') {
+        continue; // Pular completamente o campo image
+      }
+      data[key] = numberFields.includes(key) && value ? parseFloat(value) : value || undefined;
+    }
+
+    return data;
+  }
+  filterValidFields(data, modelKey) {
+    const config = this.modelConfigs[modelKey];
+    if (!config) return data;
+
+    const validFields = new Set([
+      'name', 'description', 'type', 'image', // Campos básicos
+      ...(config.formFields || []),
+      ...(config.textFields || []),
+      ...(config.extraSelectFields || []),
+      config.selectField || 'type'
+    ]);
+
+    const filtered = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (validFields.has(key)) {
+        filtered[key] = value;
+      } else {
+        console.warn(`🔍 Campo '${key}' não é válido para modelo '${modelKey}', removendo...`);
+      }
+    }
+
+    return filtered;
   }
 
   // === DEBUGGING ===

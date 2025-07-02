@@ -134,8 +134,10 @@ class AdminCore {
       }
 
       if (e.key === 'Escape') {
-        if (window.AdminUtils) {
-          window.AdminUtils.closeAllModals();
+        // Usar referência segura para AdminUtils
+        const utils = this.getAdminUtils();
+        if (utils) {
+          utils.closeAllModals();
         }
       }
 
@@ -147,17 +149,48 @@ class AdminCore {
 
     // Conectividade
     window.addEventListener('offline', () => {
-      if (window.AdminUtils) {
-        window.AdminUtils.showNotification('Conexão perdida. Trabalhando offline.', 'warning');
+      const utils = this.getAdminUtils();
+      if (utils) {
+        utils.showNotification('Conexão perdida. Trabalhando offline.', 'warning');
       }
     });
 
     window.addEventListener('online', () => {
-      if (window.AdminUtils) {
-        window.AdminUtils.showNotification('Conexão restaurada.', 'success');
+      const utils = this.getAdminUtils();
+      if (utils) {
+        utils.showNotification('Conexão restaurada.', 'success');
       }
       this.refresh();
     });
+  }
+
+  // === HELPERS PARA ACESSAR OUTRAS INSTÂNCIAS ===
+  getAdminUtils() {
+    // Tentar várias formas de acessar AdminUtils
+    if (window.AdminSystem?.utils) {
+      return window.AdminSystem.utils;
+    }
+    if (window.adminApp?.utils) {
+      return window.adminApp.utils;
+    }
+    if (window.AdminSystemApp?.utils) {
+      return window.AdminSystemApp.utils;
+    }
+    return null;
+  }
+
+  getAdminDashboard() {
+    // Tentar várias formas de acessar AdminDashboard
+    if (window.AdminSystem?.dashboard) {
+      return window.AdminSystem.dashboard;
+    }
+    if (window.adminApp?.dashboard) {
+      return window.adminApp.dashboard;
+    }
+    if (window.AdminSystemApp?.dashboard) {
+      return window.AdminSystemApp.dashboard;
+    }
+    return null;
   }
 
   // === LOADING ===
@@ -180,9 +213,12 @@ class AdminCore {
     try {
       await this.loadSession();
 
-      // Notificar outros módulos
-      if (window.AdminDashboard) {
-        await window.AdminDashboard.loadDashboardData();
+      // Notificar outros módulos com referência segura
+      const dashboard = this.getAdminDashboard();
+      if (dashboard && typeof dashboard.loadDashboardData === 'function') {
+        await dashboard.loadDashboardData();
+      } else {
+        console.warn('⚠️ AdminDashboard.loadDashboardData não encontrado');
       }
 
       const lastUpdate = document.getElementById('lastUpdate');
@@ -192,10 +228,18 @@ class AdminCore {
           timeValue.textContent = new Date().toLocaleTimeString('pt-BR');
         }
       }
+
+      // Mostrar notificação de sucesso
+      const utils = this.getAdminUtils();
+      if (utils && typeof utils.showNotification === 'function') {
+        utils.showNotification('Dados atualizados com sucesso!', 'success');
+      }
+
     } catch (error) {
       console.error('Erro no refresh:', error);
-      if (window.AdminUtils) {
-        window.AdminUtils.showNotification('Erro ao atualizar dados', 'error');
+      const utils = this.getAdminUtils();
+      if (utils && typeof utils.showNotification === 'function') {
+        utils.showNotification('Erro ao atualizar dados', 'error');
       }
     }
   }
@@ -242,7 +286,11 @@ class AdminCore {
   }
 
   showHelp() {
-    if (!window.AdminUtils) return;
+    const utils = this.getAdminUtils();
+    if (!utils) {
+      console.warn('⚠️ AdminUtils não encontrado para mostrar ajuda');
+      return;
+    }
 
     const helpContent = `
       <h4>⌨️ Atalhos de Teclado</h4>
@@ -266,7 +314,7 @@ class AdminCore {
       </ul>
     `;
 
-    window.AdminUtils.showHelpModal('❓ Ajuda - Admin Panel v3.2', helpContent);
+    utils.showHelpModal('❓ Ajuda - Admin Panel v3.2', helpContent);
   }
 
   debug(...args) {

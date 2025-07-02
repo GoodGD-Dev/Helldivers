@@ -120,7 +120,7 @@ class AdminController {
 
       const css = await fs.readFile(cssPath, 'utf8');
 
-      // CRUCIAL: Content-Type correto para CSS
+
       res.setHeader('Content-Type', 'text/css; charset=utf-8');
       res.setHeader('Cache-Control', 'public, max-age=3600');
       res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -186,7 +186,7 @@ class AdminController {
     }
   }
 
-  // Servir arquivos JavaScript - CORRIGIDO PARA MIME TYPE CORRETO
+  // Servir arquivos JavaScript
   async serveJS(req, res) {
     try {
       const filename = req.params.filename;
@@ -196,7 +196,6 @@ class AdminController {
 
       const js = await fs.readFile(jsPath, 'utf8');
 
-      // CRUCIAL: Content-Type correto para JavaScript
       res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
       res.setHeader('Cache-Control', 'public, max-age=3600');
       res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -276,7 +275,7 @@ class AdminController {
         console.log('📁 Caminho físico tentado:', '${jsPath}');
       `;
 
-      // IMPORTANTE: Content-Type correto mesmo para fallback
+
       res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
       res.setHeader('X-Content-Type-Options', 'nosniff');
       res.status(404).send(fallbackJS);

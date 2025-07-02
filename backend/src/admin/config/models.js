@@ -1,6 +1,3 @@
-// src/admin/config/models.js
-// Configuração centralizada dos modelos para o Admin Panel
-
 const modelsConfig = {
   'primary-weapons': {
     name: 'Armas Primárias',

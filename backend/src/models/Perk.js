@@ -20,13 +20,40 @@ const perkSchema = new mongoose.Schema({
     required: [true, 'Descrição é obrigatória'],
     trim: true,
     maxlength: [500, 'Descrição deve ter no máximo 500 caracteres']
+  },
+  // 🖼️ CAMPO DE IMAGEM
+  image: {
+    type: String,
+    required: false,
+    trim: true,
+    validate: {
+      validator: function (v) {
+        if (!v) return true;
+        return /^(https?:\/\/)|(\/uploads\/)|(data:image\/)/.test(v);
+      },
+      message: 'Image deve ser uma URL válida ou caminho de arquivo'
+    }
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
 });
 
-// 🔍 Índices para performance
-perkSchema.index({ name: 1 });
+// 🖼️ Virtual para URL da imagem
+perkSchema.virtual('imageUrl').get(function () {
+  if (this.image) {
+    if (this.image.startsWith('http') || this.image.startsWith('data:')) {
+      return this.image;
+    }
+    return `/uploads/perks/${this.image}`;
+  }
+  // Imagem padrão para perks
+  return '/assets/images/perk-default.webp';
+});
+
+// ✅ CORREÇÃO: Removido schema.index({ name: 1 }) 
+// O "unique: true" já cria automaticamente o índice necessário
 
 // 🛡️ Middleware de validação
 perkSchema.pre('save', function (next) {

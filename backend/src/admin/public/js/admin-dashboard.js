@@ -1,5 +1,3 @@
-// Gerenciamento do dashboard - Estatísticas e visualização principal
-
 class AdminDashboard {
   constructor() {
     this.modelConfigs = {

@@ -1,7 +1,7 @@
 // Arquivo principal - Integra todos os módulos do admin
 
 /**
- * Sistema Admin Principal v3.2 - Versão Robusta
+ * Sistema Admin Principal v3.2 - Versão Robusta e Corrigida
  * Inicialização sequencial e tratamento de erros melhorado
  */
 class AdminApp {
@@ -143,10 +143,19 @@ class AdminApp {
         models: null     // Será definido após inicialização
       };
 
+      // Também criar referência alternativa para compatibilidade
+      window.adminApp = {
+        core: this.core,
+        utils: this.utils,
+        dashboard: null,
+        models: null
+      };
+
       // 3. Dashboard (precisa das instâncias disponíveis)
       console.log('3️⃣ Inicializando Dashboard...');
       this.dashboard = new window.AdminDashboard();
       window.AdminSystem.dashboard = this.dashboard;
+      window.adminApp.dashboard = this.dashboard;
 
       const dashboardSuccess = await this.dashboard.init();
       if (!dashboardSuccess) {
@@ -157,9 +166,17 @@ class AdminApp {
       console.log('4️⃣ Inicializando Models...');
       this.models = new window.AdminModels();
       window.AdminSystem.models = this.models;
+      window.adminApp.models = this.models;
 
       // Atualizar referência global final
       window.AdminSystem = {
+        core: this.core,
+        utils: this.utils,
+        dashboard: this.dashboard,
+        models: this.models
+      };
+
+      window.adminApp = {
         core: this.core,
         utils: this.utils,
         dashboard: this.dashboard,
@@ -206,21 +223,38 @@ class AdminApp {
       loadDashboardData: () => this.dashboard?.loadDashboardData()
     };
 
-    // Funções globais individuais
+    // Funções globais individuais - COM VERIFICAÇÃO DE SEGURANÇA
     window.confirmAction = (title, message, callback) => {
-      this.utils?.confirmAction(title, message, callback);
+      if (this.utils?.confirmAction) {
+        this.utils.confirmAction(title, message, callback);
+      } else {
+        console.warn('⚠️ AdminUtils não está disponível para confirmAction');
+      }
     };
 
     window.showLoading = () => {
-      this.core?.showLoading();
+      if (this.core?.showLoading) {
+        this.core.showLoading();
+      } else {
+        console.warn('⚠️ AdminCore não está disponível para showLoading');
+      }
     };
 
     window.hideLoading = () => {
-      this.core?.hideLoading();
+      if (this.core?.hideLoading) {
+        this.core.hideLoading();
+      } else {
+        console.warn('⚠️ AdminCore não está disponível para hideLoading');
+      }
     };
 
     window.showNotification = (message, type = 'info', duration = 5000) => {
-      this.utils?.showNotification(message, type, duration);
+      if (this.utils?.showNotification) {
+        this.utils.showNotification(message, type, duration);
+      } else {
+        console.warn('⚠️ AdminUtils não está disponível para showNotification');
+        console.log(`📢 Notificação [${type}]: ${message}`);
+      }
     };
 
     console.log('🔗 Funções globais configuradas para compatibilidade');
@@ -352,7 +386,8 @@ class AdminApp {
       globalReferences: {
         AdminSystem: !!window.AdminSystem,
         AdminApp: !!window.AdminApp,
-        DashboardApp: !!window.DashboardApp
+        DashboardApp: !!window.DashboardApp,
+        adminApp: !!window.adminApp
       },
       timestamp: new Date().toISOString()
     };

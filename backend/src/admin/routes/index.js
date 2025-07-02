@@ -16,10 +16,10 @@ router.use(logAccess);
 
 // === ARQUIVOS ESTÁTICOS COM MIME TYPES CORRETOS ===
 
-// CSS - Content-Type correto
+// CSS
 router.get('/assets/css/:filename', adminController.serveCSS);
 
-// JavaScript - Content-Type correto 
+// JavaScript 
 router.get('/assets/js/:filename', adminController.serveJS);
 
 // IMPORTANTE: Rotas alternativas para os caminhos no HTML

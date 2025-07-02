@@ -46,6 +46,19 @@ const primaryWeaponSchema = new mongoose.Schema({
     required: [true, 'Descrição é obrigatória'],
     trim: true,
     maxlength: [500, 'Descrição deve ter no máximo 500 caracteres']
+  },
+  // 🖼️ CAMPO DE IMAGEM
+  image: {
+    type: String,
+    required: false,
+    trim: true,
+    validate: {
+      validator: function (v) {
+        if (!v) return true;
+        return /^(https?:\/\/)|(\/uploads\/)|(data:image\/)/.test(v);
+      },
+      message: 'Image deve ser uma URL válida ou caminho de arquivo'
+    }
   }
 }, {
   timestamps: true,
@@ -61,6 +74,26 @@ primaryWeaponSchema.virtual('dps').get(function () {
 // 📊 Virtual para Damage Per Magazine
 primaryWeaponSchema.virtual('damagePerMagazine').get(function () {
   return this.damage * this.magazineSize;
+});
+
+// 🖼️ Virtual para URL da imagem
+primaryWeaponSchema.virtual('imageUrl').get(function () {
+  if (this.image) {
+    // Se já é uma URL completa, retornar como está
+    if (this.image.startsWith('http') || this.image.startsWith('/uploads/')) {
+      return this.image;
+    }
+    // Se é apenas o nome do arquivo, adicionar o path completo
+    return `/uploads/primary-weapons/${this.image}`;
+  }
+  // Imagem padrão baseada no tipo
+  const defaultImages = {
+    'Assault Rifle': '/assets/images/primary-assault-default.webp',
+    'Shotgun': '/assets/images/primary-shotgun-default.webp',
+    'Sniper': '/assets/images/primary-sniper-default.webp',
+    'SMG': '/assets/images/primary-smg-default.webp'
+  };
+  return defaultImages[this.type] || '/assets/images/primary-weapon-default.webp';
 });
 
 // 🔍 Índices para performance

@@ -45,6 +45,19 @@ const armorSchema = new mongoose.Schema({
     required: [true, 'Descrição é obrigatória'],
     trim: true,
     maxlength: [500, 'Descrição deve ter no máximo 500 caracteres']
+  },
+  // 🖼️ CAMPO DE IMAGEM
+  image: {
+    type: String,
+    required: false,
+    trim: true,
+    validate: {
+      validator: function (v) {
+        if (!v) return true;
+        return /^(https?:\/\/)|(\/uploads\/)|(data:image\/)/.test(v);
+      },
+      message: 'Image deve ser uma URL válida ou caminho de arquivo'
+    }
   }
 }, {
   timestamps: true,
@@ -69,6 +82,23 @@ armorSchema.virtual('protectionRating').get(function () {
   if (this.armorRating >= 200) return 'Média';
   if (this.armorRating >= 100) return 'Baixa';
   return 'Mínima';
+});
+
+// 🖼️ Virtual para URL da imagem
+armorSchema.virtual('imageUrl').get(function () {
+  if (this.image) {
+    if (this.image.startsWith('http') || this.image.startsWith('data:')) {
+      return this.image;
+    }
+    return `/uploads/armors/${this.image}`;
+  }
+  // Imagem padrão baseada no tipo
+  const defaultImages = {
+    'Light': '/assets/images/armor-light-default.webp',
+    'Medium': '/assets/images/armor-medium-default.webp',
+    'Heavy': '/assets/images/armor-heavy-default.webp'
+  };
+  return defaultImages[this.type] || '/assets/images/armor-default.webp';
 });
 
 // 🔍 Índices para performance
