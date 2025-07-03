@@ -1,6 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { uploadImage, deleteImage, getModelImages, migrateImages } = require('../controllers/imageController');
+const {
+  uploadImage,
+  deleteImage,
+  getModelImages,
+  migrateImages,
+  cleanupIncorrectDirectories
+} = require('../controllers/imageController');
 
 // === MIDDLEWARE DE LOGGING PARA DEBUG ===
 router.use((req, res, next) => {
@@ -44,12 +50,19 @@ router.post('/migrate-images', (req, res, next) => {
   migrateImages(req, res, next);
 });
 
+// 🧹 NOVA ROTA: Limpar diretórios incorretos
+router.post('/cleanup-directories', (req, res, next) => {
+  console.log('📡 Recebida requisição de limpeza de diretórios');
+  cleanupIncorrectDirectories(req, res, next);
+});
+
 // 🔍 Debug - Verificar estrutura de pastas
 router.get('/debug/folder-structure', async (req, res, next) => {
   try {
     const fs = require('fs').promises;
     const path = require('path');
 
+    // CORREÇÃO: Usar caminho correto para uploads
     const uploadsPath = path.join(__dirname, '../../uploads');
     const structure = {};
 
@@ -117,6 +130,7 @@ router.get('/debug/find-image/:filename', async (req, res, next) => {
     const path = require('path');
     const { filename } = req.params;
 
+    // CORREÇÃO: Usar caminho correto para uploads
     const uploadsPath = path.join(__dirname, '../../uploads');
     const locations = [];
 
@@ -164,6 +178,56 @@ router.get('/debug/find-image/:filename', async (req, res, next) => {
   }
 });
 
+// 🔍 Debug - Verificar múltiplas localizações de uploads
+router.get('/debug/all-upload-locations', async (req, res, next) => {
+  try {
+    const fs = require('fs').promises;
+    const path = require('path');
+
+    const possiblePaths = [
+      path.join(__dirname, '../../uploads'),        // Correto
+      path.join(__dirname, '../uploads'),           // src/uploads (incorreto)
+      path.join(__dirname, '../../../uploads'),     // Acima da raiz (incorreto)
+      path.join(__dirname, '../../../../uploads')   // Muito acima (incorreto)
+    ];
+
+    const results = {};
+
+    for (const testPath of possiblePaths) {
+      try {
+        const stats = await fs.stat(testPath);
+        if (stats.isDirectory()) {
+          const files = await fs.readdir(testPath);
+          results[testPath] = {
+            exists: true,
+            isDirectory: true,
+            files: files.length,
+            contents: files.slice(0, 10) // Primeiros 10 itens
+          };
+        }
+      } catch (error) {
+        results[testPath] = {
+          exists: false,
+          error: error.message
+        };
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Verificação de múltiplas localizações de upload',
+      data: {
+        currentDirectory: __dirname,
+        expectedPath: path.join(__dirname, '../../uploads'),
+        allPaths: results
+      }
+    });
+
+  } catch (error) {
+    next(error);
+  }
+});
+
 // === ROTA DE HEALTH CHECK ===
 router.get('/health', (req, res) => {
   res.json({
@@ -175,9 +239,11 @@ router.get('/health', (req, res) => {
       delete: 'DELETE /delete-image',
       list: 'GET /images/:modelKey',
       migrate: 'POST /migrate-images',
+      cleanup: 'POST /cleanup-directories', // NOVA ROTA
       debug: {
         structure: 'GET /debug/folder-structure',
-        find: 'GET /debug/find-image/:filename'
+        find: 'GET /debug/find-image/:filename',
+        locations: 'GET /debug/all-upload-locations' // NOVA ROTA
       }
     }
   });

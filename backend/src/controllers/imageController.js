@@ -14,6 +14,14 @@ const MODEL_KEY_MAPPING = {
   'perks': 'perks'
 };
 
+// === DEFINIR CAMINHO CORRETO PARA UPLOADS ===
+// CORREÇÃO: Subir um nível da pasta src para a raiz do projeto
+const UPLOADS_ROOT = path.join(__dirname, '../../uploads');
+
+console.log('📁 Caminho raiz dos uploads CORRIGIDO:', UPLOADS_ROOT);
+console.log('📍 __dirname atual:', __dirname);
+console.log('📍 Caminho resolvido:', path.resolve(UPLOADS_ROOT));
+
 // === FUNÇÃO PARA NORMALIZAR MODELKEY ===
 function normalizeModelKey(modelKey) {
   if (!modelKey || modelKey === 'general') {
@@ -29,21 +37,17 @@ function normalizeModelKey(modelKey) {
 // === CONFIGURAR MULTER PARA UPLOAD DE IMAGENS ===
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
-    const rawModelKey = req.body.modelKey || 'general';
-    const modelKey = normalizeModelKey(rawModelKey);
+    console.log('📁 Multer destination: Usando pasta temporária');
 
-    console.log(`📁 Upload destination: modelKey recebido = "${rawModelKey}"`);
-    console.log(`📁 Upload destination: modelKey normalizado = "${modelKey}"`);
-
-    const uploadPath = path.join(__dirname, '../../uploads', modelKey);
-    console.log(`📁 Caminho completo: ${uploadPath}`);
+    const tempPath = path.join(UPLOADS_ROOT, 'temp');
+    console.log(`📁 Caminho temporário: ${tempPath}`);
 
     try {
-      await fs.mkdir(uploadPath, { recursive: true });
-      console.log(`✅ Pasta criada/verificada: ${uploadPath}`);
-      cb(null, uploadPath);
+      await fs.mkdir(tempPath, { recursive: true });
+      console.log(`✅ Pasta temporária criada/verificada: ${tempPath}`);
+      cb(null, tempPath);
     } catch (error) {
-      console.error(`❌ Erro ao criar pasta: ${error.message}`);
+      console.error(`❌ Erro ao criar pasta temporária: ${error.message}`);
       cb(error);
     }
   },
@@ -73,12 +77,12 @@ const upload = multer({
   }
 });
 
-// === UPLOAD DE IMAGEM ===
+// === UPLOAD DE IMAGEM (VERSÃO CORRIGIDA) ===
 const uploadImage = async (req, res, next) => {
   try {
-    const uploadSingle = upload.single('image');
+    const uploadHandler = upload.single('image');
 
-    uploadSingle(req, res, async (err) => {
+    uploadHandler(req, res, async (err) => {
       if (err) {
         if (err instanceof multer.MulterError) {
           if (err.code === 'LIMIT_FILE_SIZE') {
@@ -102,10 +106,41 @@ const uploadImage = async (req, res, next) => {
         });
       }
 
+      // Normalizar modelKey
       const rawModelKey = req.body.modelKey || 'general';
       const modelKey = normalizeModelKey(rawModelKey);
-      const imageUrl = `/uploads/${modelKey}/${req.file.filename}`;
 
+      console.log(`📁 Movendo arquivo para pasta: ${modelKey}`);
+      console.log(`📄 Arquivo temporário: ${req.file.path}`);
+
+      // Criar pasta de destino no local correto
+      const destinationPath = path.join(UPLOADS_ROOT, modelKey);
+      console.log(`📁 Pasta de destino: ${destinationPath}`);
+
+      await fs.mkdir(destinationPath, { recursive: true });
+
+      // Novo caminho do arquivo
+      const newFileName = req.file.filename;
+      const newFilePath = path.join(destinationPath, newFileName);
+
+      try {
+        // Mover arquivo da pasta temp para a pasta correta
+        await fs.rename(req.file.path, newFilePath);
+        console.log(`✅ Arquivo movido para: ${newFilePath}`);
+      } catch (moveError) {
+        console.error(`❌ Erro ao mover arquivo: ${moveError.message}`);
+        // Tentar copiar e depois deletar
+        try {
+          await fs.copyFile(req.file.path, newFilePath);
+          await fs.unlink(req.file.path);
+          console.log(`✅ Arquivo copiado e original removido: ${newFilePath}`);
+        } catch (copyError) {
+          console.error(`❌ Erro ao copiar arquivo: ${copyError.message}`);
+          throw copyError;
+        }
+      }
+
+      const imageUrl = `/uploads/${modelKey}/${newFileName}`;
       console.log(`✅ Upload realizado com sucesso: ${imageUrl}`);
 
       res.status(HTTP_STATUS.OK).json({
@@ -113,7 +148,7 @@ const uploadImage = async (req, res, next) => {
         message: 'Imagem enviada com sucesso',
         data: {
           imageUrl: imageUrl,
-          filename: req.file.filename,
+          filename: newFileName,
           originalName: req.file.originalname,
           size: req.file.size,
           modelKey: modelKey
@@ -131,11 +166,11 @@ const uploadImage = async (req, res, next) => {
 async function findImageFile(imagePath) {
   const possiblePaths = [
     // Caminho original (específico do modelo)
-    path.join(__dirname, '../../uploads', imagePath),
+    path.join(UPLOADS_ROOT, imagePath),
     // Caminho em 'general' (fallback)
-    path.join(__dirname, '../../uploads/general', path.basename(imagePath)),
+    path.join(UPLOADS_ROOT, 'general', path.basename(imagePath)),
     // Caminho direto na pasta uploads (caso muito antigo)
-    path.join(__dirname, '../../uploads', path.basename(imagePath))
+    path.join(UPLOADS_ROOT, path.basename(imagePath))
   ];
 
   console.log(`🔍 Procurando arquivo em ${possiblePaths.length} locais possíveis:`);
@@ -216,7 +251,6 @@ const deleteImage = async (req, res, next) => {
         });
       }
     } else {
-      // Arquivo não encontrado, mas isso não é um erro crítico
       console.warn(`⚠️ deleteImage Controller: Arquivo não encontrado em nenhum local`);
 
       res.status(HTTP_STATUS.OK).json({
@@ -244,7 +278,7 @@ const getModelImages = async (req, res, next) => {
 
     console.log(`📋 Listando imagens para modelo: ${modelKey} -> ${normalizedModelKey}`);
 
-    const uploadPath = path.join(__dirname, '../../uploads', normalizedModelKey);
+    const uploadPath = path.join(UPLOADS_ROOT, normalizedModelKey);
 
     try {
       const files = await fs.readdir(uploadPath);
@@ -264,7 +298,6 @@ const getModelImages = async (req, res, next) => {
         modelKey: normalizedModelKey
       });
     } catch (dirError) {
-      // Diretório não existe
       console.log(`📁 Diretório não existe: ${uploadPath}`);
       res.status(HTTP_STATUS.OK).json({
         success: true,
@@ -285,7 +318,7 @@ const migrateImages = async (req, res, next) => {
   try {
     console.log('🔄 Iniciando migração de imagens...');
 
-    const generalPath = path.join(__dirname, '../../uploads/general');
+    const generalPath = path.join(UPLOADS_ROOT, 'general');
     const results = {
       moved: [],
       errors: [],
@@ -319,10 +352,86 @@ const migrateImages = async (req, res, next) => {
   }
 };
 
+// === FUNÇÃO PARA LIMPAR PASTAS INCORRETAS ===
+const cleanupIncorrectDirectories = async (req, res, next) => {
+  try {
+    console.log('🧹 Iniciando limpeza de diretórios incorretos...');
+
+    const incorrectPaths = [
+      path.join(__dirname, '../../../uploads'), // Dois níveis acima
+      path.join(__dirname, '../uploads')        // Um nível acima (src/uploads)
+    ];
+
+    const results = {
+      cleaned: [],
+      errors: [],
+      totalRemoved: 0
+    };
+
+    for (const incorrectPath of incorrectPaths) {
+      try {
+        console.log(`🔍 Verificando pasta incorreta: ${incorrectPath}`);
+
+        // Verificar se existe
+        await fs.access(incorrectPath);
+
+        // Se existe, listar conteúdo
+        const files = await fs.readdir(incorrectPath);
+        console.log(`📂 Encontrados ${files.length} itens em ${incorrectPath}`);
+
+        if (files.length > 0) {
+          // Mover arquivos para o local correto se possível
+          for (const file of files) {
+            const sourcePath = path.join(incorrectPath, file);
+            const targetPath = path.join(UPLOADS_ROOT, 'general', file);
+
+            try {
+              // Garantir que a pasta de destino existe
+              await fs.mkdir(path.join(UPLOADS_ROOT, 'general'), { recursive: true });
+
+              // Mover arquivo
+              await fs.rename(sourcePath, targetPath);
+              results.totalRemoved++;
+              console.log(`✅ Movido: ${file} -> ${targetPath}`);
+            } catch (moveError) {
+              console.error(`❌ Erro ao mover ${file}:`, moveError.message);
+              results.errors.push(`Erro ao mover ${file}: ${moveError.message}`);
+            }
+          }
+        }
+
+        // Tentar remover diretório vazio
+        try {
+          await fs.rmdir(incorrectPath);
+          results.cleaned.push(incorrectPath);
+          console.log(`🗑️ Diretório removido: ${incorrectPath}`);
+        } catch (rmError) {
+          console.warn(`⚠️ Não foi possível remover ${incorrectPath}:`, rmError.message);
+        }
+
+      } catch (accessError) {
+        console.log(`✅ Pasta não existe (ok): ${incorrectPath}`);
+      }
+    }
+
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      message: 'Limpeza de diretórios concluída',
+      data: results,
+      currentUploadsPath: UPLOADS_ROOT
+    });
+
+  } catch (error) {
+    console.error('❌ Erro na limpeza:', error);
+    next(error);
+  }
+};
+
 module.exports = {
   uploadImage,
   deleteImage,
   getModelImages,
   migrateImages,
+  cleanupIncorrectDirectories,
   upload
 };

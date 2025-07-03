@@ -68,13 +68,47 @@ if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('combined'));
 }
 
+// 🚨 CORS CORRIGIDO - SUPORTE COMPLETO PARA DESENVOLVIMENTO
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production'
-    ? (process.env.CORS_ORIGIN || 'https://seudominio.com').split(',')
-    : ['http://localhost:3000', 'http://localhost:3001', 'http://127.0.0.1:3000'],
+  origin: function (origin, callback) {
+    console.log('🌍 CORS: Checking origin:', origin);
+
+    // Lista de origens permitidas
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:5173',  // Vite dev server
+      'http://localhost:4173',  // Vite preview
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:5173',
+      'https://helldivers.onrender.com'
+    ];
+
+    // Em produção, adicionar domínios do .env
+    if (process.env.NODE_ENV === 'production' && process.env.CORS_ORIGIN) {
+      const prodOrigins = process.env.CORS_ORIGIN.split(',').map(origin => origin.trim());
+      allowedOrigins.push(...prodOrigins);
+    }
+
+    // Permitir requests sem origin (mobile apps, postman, etc.)
+    if (!origin) {
+      console.log('✅ CORS: Request sem origin permitido');
+      return callback(null, true);
+    }
+
+    if (allowedOrigins.includes(origin)) {
+      console.log('✅ CORS: Origin permitida:', origin);
+      callback(null, true);
+    } else {
+      console.warn(`🚨 CORS: Origin ${origin} não permitida`);
+      console.log('📋 CORS: Origens permitidas:', allowedOrigins);
+      callback(new Error('Não permitido pelo CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  optionsSuccessStatus: 200 // Para suportar browsers legados
 }));
 
 app.use(compression());
@@ -84,7 +118,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // === ARQUIVOS ESTÁTICOS ===
 
 // 📁 SERVIR ARQUIVOS DE UPLOAD (ANTES DO ADMIN)
-app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
   maxAge: process.env.NODE_ENV === 'production' ? '7d' : '0',
   etag: true,
   lastModified: true,
@@ -92,6 +126,10 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
     // Security headers para uploads
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
+
+    // CORS headers para imagens
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET');
 
     // Cache headers para imagens
     if (/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(filePath)) {
@@ -238,67 +276,18 @@ app.use('*', (req, res) => {
 
 app.use(errorHandler);
 
-// === INICIALIZAÇÃO ===
+// === FUNÇÕES AUXILIARES ===
 
-const startServer = async () => {
-  try {
-    console.log('🔗 Conectando ao banco de dados...');
-    await connectDatabase();
-    console.log('✅ Banco de dados conectado com sucesso');
-
-    // 📁 CRIAR ESTRUTURA DE PASTAS DE UPLOAD
-    await createUploadDirectories();
-
-    const server = app.listen(PORT, () => {
-      console.log('\n' + '='.repeat(60));
-      console.log('🚀 HELLDIVERS 2 API - SERVIDOR INICIADO');
-      console.log('='.repeat(60));
-      console.log(`📍 Porta: ${PORT}`);
-      console.log(`🌐 Ambiente: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`🕒 Iniciado em: ${new Date().toLocaleString('pt-BR')}`);
-      console.log('\n📡 ENDPOINTS DISPONÍVEIS:');
-      console.log(`   API Principal: http://localhost:${PORT}/api`);
-      console.log(`   ⚙️  Admin Panel: http://localhost:${PORT}/admin`);
-      console.log(`   📚 Documentação: http://localhost:${PORT}/api/docs`);
-      console.log(`   🏥 Health Check: http://localhost:${PORT}/health`);
-      console.log(`   📁 Uploads: http://localhost:${PORT}/uploads/`);
-
-      if (process.env.NODE_ENV === 'production') {
-        console.log('\n🔐 SEGURANÇA:');
-        console.log(`   Admin protegido com Basic Auth`);
-      } else {
-        console.log('\n🔓 DESENVOLVIMENTO:');
-        console.log(`   Admin sem autenticação (desenvolvimento)`);
-        console.log(`   Configure ADMIN_AUTH=true para ativar autenticação`);
-        console.log(`   🛡️  CSP configurado para desenvolvimento`);
-      }
-    });
-
-    setupGracefulShutdown(server);
-    logProcessStats();
-
-    return server;
-  } catch (error) {
-    console.error('\n❌ ERRO CRÍTICO AO INICIAR SERVIDOR:');
-    console.error('='.repeat(50));
-    console.error('Erro:', error.message);
-    if (error.stack) {
-      console.error('Stack:', error.stack);
-    }
-    console.error('='.repeat(50));
-
-    console.log('\n🔍 DIAGNÓSTICO:');
-    console.log(`Porta ${PORT}:`, await checkPortAvailability(PORT) ? 'Disponível' : 'Em uso');
-    console.log(`MongoDB URI:`, process.env.MONGODB_URI ? 'Configurado' : 'Não configurado');
-    console.log(`NODE_ENV:`, process.env.NODE_ENV || 'não definido');
-
-    process.exit(1);
-  }
-};
-
-// 📁 CRIAR ESTRUTURA DE PASTAS DE UPLOAD
+// 📁 CRIAR ESTRUTURA DE PASTAS DE UPLOAD - VERSÃO CORRIGIDA
 async function createUploadDirectories() {
   const fs = require('fs').promises;
+
+  // CORREÇÃO: Pasta uploads na raiz do projeto, não em src/
+  const uploadsBasePath = path.join(__dirname, '../uploads');
+
+  console.log('📁 Caminho base dos uploads:', uploadsBasePath);
+  console.log('📍 __dirname do server:', __dirname);
+  console.log('📍 Caminho absoluto resolvido:', path.resolve(uploadsBasePath));
 
   const uploadPaths = [
     'uploads',
@@ -308,17 +297,54 @@ async function createUploadDirectories() {
     'uploads/throwables',
     'uploads/stratagems',
     'uploads/passive-armors',
-    'uploads/perks'
+    'uploads/perks',
+    'uploads/general',
+    'uploads/temp'
   ];
 
   try {
     for (const uploadPath of uploadPaths) {
-      const fullPath = path.join(__dirname, uploadPath);
+      // Usar caminho relativo à raiz do projeto
+      const fullPath = path.join(__dirname, '..', uploadPath);
       await fs.mkdir(fullPath, { recursive: true });
+      console.log(`✅ Pasta criada/verificada: ${fullPath}`);
     }
     console.log('📁 Estrutura de pastas de upload criada com sucesso');
+
+    // Verificar se não há pastas em locais incorretos
+    await checkForIncorrectDirectories();
+
   } catch (error) {
-    console.warn('⚠️  Aviso ao criar pastas de upload:', error.message);
+    console.warn('⚠️ Aviso ao criar pastas de upload:', error.message);
+  }
+}
+
+// Verificar se existem pastas em locais incorretos
+async function checkForIncorrectDirectories() {
+  const fs = require('fs').promises;
+
+  const incorrectPaths = [
+    path.join(__dirname, '../../../uploads'),    // Dois níveis acima
+    path.join(__dirname, '../uploads'),          // src/uploads (pode estar correto dependendo da estrutura)
+    path.join(__dirname, 'uploads')              // Dentro de src/ (incorreto)
+  ];
+
+  console.log('🔍 Verificando locais incorretos para pastas de upload...');
+
+  for (const incorrectPath of incorrectPaths) {
+    try {
+      const stats = await fs.stat(incorrectPath);
+      if (stats.isDirectory()) {
+        const files = await fs.readdir(incorrectPath);
+        if (files.length > 0) {
+          console.warn(`⚠️ ATENÇÃO: Encontrada pasta de upload em local incorreto: ${incorrectPath}`);
+          console.warn(`   📂 Contém ${files.length} itens`);
+          console.warn(`   🔧 Use POST /admin/api/cleanup-directories para limpar`);
+        }
+      }
+    } catch (error) {
+      // Pasta não existe - isso é bom
+    }
   }
 }
 
@@ -400,6 +426,82 @@ async function checkPortAvailability(port) {
     server.on('error', () => resolve(false));
   });
 }
+
+// === INICIALIZAÇÃO ===
+
+const startServer = async () => {
+  try {
+    console.log('🔗 Conectando ao banco de dados...');
+    await connectDatabase();
+    console.log('✅ Banco de dados conectado com sucesso');
+
+    // 📁 CRIAR ESTRUTURA DE PASTAS DE UPLOAD
+    await createUploadDirectories();
+
+    const server = app.listen(PORT, () => {
+      console.log('\n' + '='.repeat(60));
+      console.log('🚀 HELLDIVERS 2 API - SERVIDOR INICIADO');
+      console.log('='.repeat(60));
+      console.log(`📍 Porta: ${PORT}`);
+      console.log(`🌐 Ambiente: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`🕒 Iniciado em: ${new Date().toLocaleString('pt-BR')}`);
+      console.log('\n📡 ENDPOINTS DISPONÍVEIS:');
+      console.log(`   API Principal: http://localhost:${PORT}/api`);
+      console.log(`   ⚙️  Admin Panel: http://localhost:${PORT}/admin`);
+      console.log(`   📚 Documentação: http://localhost:${PORT}/api/docs`);
+      console.log(`   🏥 Health Check: http://localhost:${PORT}/health`);
+      console.log(`   📁 Uploads: http://localhost:${PORT}/uploads/`);
+
+      // Log CORS info
+      console.log('\n🌍 CORS CONFIGURADO PARA:');
+      console.log('   http://localhost:5173 (Vite dev)');
+      console.log('   http://localhost:3000 (Backend)');
+      console.log('   http://localhost:4173 (Vite preview)');
+
+      if (process.env.CORS_ORIGIN) {
+        console.log('   Origens extras:', process.env.CORS_ORIGIN);
+      }
+
+      if (process.env.NODE_ENV === 'production') {
+        console.log('\n🔐 SEGURANÇA:');
+        console.log(`   Admin protegido com Basic Auth`);
+      } else {
+        console.log('\n🔓 DESENVOLVIMENTO:');
+        console.log(`   Admin sem autenticação (desenvolvimento)`);
+        console.log(`   Configure ADMIN_AUTH=true para ativar autenticação`);
+        console.log(`   🛡️  CSP configurado para desenvolvimento`);
+      }
+
+      // Log de informações de upload
+      console.log('\n📁 SISTEMA DE UPLOADS:');
+      console.log(`   Pasta raiz: ${path.join(__dirname, '../uploads')}`);
+      console.log(`   URL base: http://localhost:${PORT}/uploads/`);
+      console.log(`   Endpoint upload: POST /admin/api/upload-image`);
+      console.log(`   Endpoint limpeza: POST /admin/api/cleanup-directories`);
+      console.log(`   Debug estrutura: GET /admin/api/debug/folder-structure`);
+    });
+
+    setupGracefulShutdown(server);
+    logProcessStats();
+
+    return server;
+  } catch (error) {
+    console.error('\n❌ ERRO CRÍTICO AO INICIAR SERVIDOR:');
+    console.error('='.repeat(50));
+    console.error('Erro:', error.message);
+    if (error.stack) {
+      console.error('Stack:', error.stack);
+    }
+    console.error('='.repeat(50));
+
+    console.log('\n🔍 DIAGNÓSTICO:');
+    console.log(`Porta ${PORT}:`, await checkPortAvailability(PORT) ? 'Disponível' : 'Em uso');
+    console.log(`MongoDB URI:`, process.env.MONGODB_URI ? 'Configurado' : 'Não configurado');
+    console.log(`NODE_ENV:`, process.env.NODE_ENV || 'não definido');
+
+    process.exit(1);
+  }
+};
 
 // === EXPORTAÇÃO E INICIALIZAÇÃO ===
 
