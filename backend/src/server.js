@@ -19,7 +19,7 @@ const imageRoutes = require('./routes/images');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// === MIDDLEWARES DE SEGURANÇA ===
+// === MIDDLEWARES DE SEGURANÇA COM CORREÇÃO CORS ===
 
 // CSP ESPECÍFICO PARA ADMIN - VERSÃO QUE FUNCIONA
 app.use('/admin', helmet({
@@ -30,10 +30,10 @@ app.use('/admin', helmet({
       styleSrc: ["'self'", "'unsafe-inline'"],
       styleSrcAttr: ["'unsafe-inline'"],
       styleSrcElem: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"], // Necessário para alguns browsers
-      scriptSrcElem: ["'self'", "'unsafe-inline'"], // Necessário para alguns browsers  
-      scriptSrcAttr: ["'none'"], // Event handlers inline bloqueados
-      imgSrc: ["'self'", "data:", "https:", "blob:"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrcElem: ["'self'", "'unsafe-inline'"],
+      scriptSrcAttr: ["'none'"],
+      imgSrc: ["'self'", "data:", "https:", "blob:", "*"], // Permitir imagens de qualquer origem
       connectSrc: ["'self'"],
       fontSrc: ["'self'", "data:", "https:"],
       objectSrc: ["'none'"],
@@ -46,20 +46,21 @@ app.use('/admin', helmet({
     }
   },
   crossOriginEmbedderPolicy: false,
-  crossOriginResourcePolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" }, // IMPORTANTE
   referrerPolicy: { policy: "same-origin" }
 }));
 
-// CSP para outras rotas (mais restritivo)
+// CSP para outras rotas (menos restritivo para imagens)
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
       styleSrc: ["'self'"],
       scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
+      imgSrc: ["'self'", "data:", "https:", "*"], // Permitir imagens de qualquer origem
     },
   },
+  crossOriginResourcePolicy: { policy: "cross-origin" } // IMPORTANTE
 }));
 
 app.use(rateLimiter);
@@ -68,7 +69,7 @@ if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('combined'));
 }
 
-// 🚨 CORS CORRIGIDO - SUPORTE COMPLETO PARA DESENVOLVIMENTO
+// 🚨 CORS MELHORADO PARA PRODUÇÃO
 app.use(cors({
   origin: function (origin, callback) {
     console.log('🌍 CORS: Checking origin:', origin);
@@ -81,7 +82,10 @@ app.use(cors({
       'http://localhost:4173',  // Vite preview
       'http://127.0.0.1:3000',
       'http://127.0.0.1:5173',
-      'https://helldivers.onrender.com'
+      'https://helldivers.onrender.com',
+      // Adicionar domínios da Vercel
+      /^https:\/\/.*\.vercel\.app$/,
+      /^https:\/\/.*\.vercel\.com$/
     ];
 
     // Em produção, adicionar domínios do .env
@@ -96,7 +100,17 @@ app.use(cors({
       return callback(null, true);
     }
 
-    if (allowedOrigins.includes(origin)) {
+    // Verificar se a origin está na lista ou corresponde aos padrões regex
+    const isAllowed = allowedOrigins.some(allowed => {
+      if (typeof allowed === 'string') {
+        return allowed === origin;
+      } else if (allowed instanceof RegExp) {
+        return allowed.test(origin);
+      }
+      return false;
+    });
+
+    if (isAllowed) {
       console.log('✅ CORS: Origin permitida:', origin);
       callback(null, true);
     } else {
@@ -106,35 +120,75 @@ app.use(cors({
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  optionsSuccessStatus: 200 // Para suportar browsers legados
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Origin', 'Accept'],
+  optionsSuccessStatus: 200,
+  // Headers expostos para o cliente
+  exposedHeaders: ['Content-Length', 'Content-Type', 'Cache-Control']
 }));
 
 app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// === ARQUIVOS ESTÁTICOS ===
+// === MIDDLEWARE ESPECÍFICO PARA OPTIONS (Preflight) ===
+app.options('*', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, HEAD');
+  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.sendStatus(200);
+});
 
-// 📁 SERVIR ARQUIVOS DE UPLOAD (ANTES DO ADMIN)
-app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
-  maxAge: process.env.NODE_ENV === 'production' ? '7d' : '0',
+// === ARQUIVOS ESTÁTICOS COM CORS CORRETO ===
+
+// 📁 SERVIR ARQUIVOS DE UPLOAD COM HEADERS CORS ESPECÍFICOS
+app.use('/uploads', (req, res, next) => {
+  // Headers CORS mais permissivos para imagens
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
+
+  // Headers de segurança básicos
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+
+  // Headers de cache agressivo para imagens
+  if (/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(req.path)) {
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable'); // 1 ano
+    res.setHeader('Expires', new Date(Date.now() + 31536000000).toUTCString());
+  }
+
+  // Log para debug (apenas em desenvolvimento)
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`🖼️ Serving image: ${req.path} with CORS headers`);
+  }
+
+  next();
+}, express.static(path.join(__dirname, '../uploads'), {
+  maxAge: process.env.NODE_ENV === 'production' ? '365d' : '0',
   etag: true,
   lastModified: true,
+  dotfiles: 'deny',
   setHeaders: (res, filePath) => {
-    // Security headers para uploads
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-Frame-Options', 'DENY');
-
-    // CORS headers para imagens
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET');
-
-    // Cache headers para imagens
-    if (/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(filePath)) {
-      res.setHeader('Cache-Control', 'public, max-age=604800'); // 7 dias
+    // MIME types específicos
+    if (/\.(jpg|jpeg)$/i.test(filePath)) {
+      res.setHeader('Content-Type', 'image/jpeg');
+    } else if (/\.png$/i.test(filePath)) {
+      res.setHeader('Content-Type', 'image/png');
+    } else if (/\.webp$/i.test(filePath)) {
+      res.setHeader('Content-Type', 'image/webp');
+    } else if (/\.gif$/i.test(filePath)) {
+      res.setHeader('Content-Type', 'image/gif');
+    } else if (/\.svg$/i.test(filePath)) {
+      res.setHeader('Content-Type', 'image/svg+xml');
     }
+
+    // Garantir headers CORS mesmo no setHeaders
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   }
 }));
 
@@ -457,6 +511,7 @@ const startServer = async () => {
       console.log('   http://localhost:5173 (Vite dev)');
       console.log('   http://localhost:3000 (Backend)');
       console.log('   http://localhost:4173 (Vite preview)');
+      console.log('   *.vercel.app (Vercel deployments)');
 
       if (process.env.CORS_ORIGIN) {
         console.log('   Origens extras:', process.env.CORS_ORIGIN);
@@ -465,6 +520,7 @@ const startServer = async () => {
       if (process.env.NODE_ENV === 'production') {
         console.log('\n🔐 SEGURANÇA:');
         console.log(`   Admin protegido com Basic Auth`);
+        console.log(`   Headers CORS configurados para produção`);
       } else {
         console.log('\n🔓 DESENVOLVIMENTO:');
         console.log(`   Admin sem autenticação (desenvolvimento)`);
@@ -479,6 +535,7 @@ const startServer = async () => {
       console.log(`   Endpoint upload: POST /admin/api/upload-image`);
       console.log(`   Endpoint limpeza: POST /admin/api/cleanup-directories`);
       console.log(`   Debug estrutura: GET /admin/api/debug/folder-structure`);
+      console.log(`   🌍 CORS habilitado para imagens`);
     });
 
     setupGracefulShutdown(server);
