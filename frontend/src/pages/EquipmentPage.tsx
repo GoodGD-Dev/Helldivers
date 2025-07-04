@@ -6,7 +6,8 @@ import {
   ErrorMessage,
   SearchBar,
   Pagination,
-  StatBadge
+  StatBadge,
+  ImageWithPlaceholder
 } from '../shared/ui/components'
 
 const EquipmentPage: React.FC = () => {
@@ -73,7 +74,7 @@ const EquipmentPage: React.FC = () => {
 
         {throwable.image && (
           <div className="mt-3">
-            <img
+            <ImageWithPlaceholder
               src={throwable.image}
               alt={throwable.name || 'Throwable'}
               className="w-full h-32 object-cover rounded-md bg-gray-100"
@@ -119,7 +120,7 @@ const EquipmentPage: React.FC = () => {
 
         {stratagem.image && (
           <div className="mt-3">
-            <img
+            <ImageWithPlaceholder
               src={stratagem.image}
               alt={stratagem.name || 'Stratagem'}
               className="w-full h-32 object-cover rounded-md bg-gray-100"
