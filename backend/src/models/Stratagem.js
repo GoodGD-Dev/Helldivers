@@ -72,9 +72,11 @@ stratagemSchema.virtual('cooldownRating').get(function () {
 // 🖼️ Virtual para URL da imagem
 stratagemSchema.virtual('imageUrl').get(function () {
   if (this.image) {
-    if (this.image.startsWith('http') || this.image.startsWith('data:')) {
+    // Se já é uma URL completa, retornar como está
+    if (this.image.startsWith('http') || this.image.startsWith('/uploads/')) {
       return this.image;
     }
+    // Se é apenas o nome do arquivo, adicionar o path completo
     return `/uploads/stratagems/${this.image}`;
   }
   // Imagem padrão baseada na categoria

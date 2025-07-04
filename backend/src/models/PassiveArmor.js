@@ -43,10 +43,12 @@ const passiveArmorSchema = new mongoose.Schema({
 // 🖼️ Virtual para URL da imagem
 passiveArmorSchema.virtual('imageUrl').get(function () {
   if (this.image) {
-    if (this.image.startsWith('http') || this.image.startsWith('data:')) {
+    // Se já é uma URL completa, retornar como está
+    if (this.image.startsWith('http') || this.image.startsWith('/uploads/')) {
       return this.image;
     }
-    return `/uploads/passive-armors/${this.image}`;
+    // Se é apenas o nome do arquivo, adicionar o path completo
+    return `/uploads/pasive-armors/${this.image}`;
   }
   // Imagem padrão para passivas (pode ser baseada no efeito)
   return '/assets/images/passive-armor-default.webp';

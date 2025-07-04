@@ -18,10 +18,6 @@ const MODEL_KEY_MAPPING = {
 // CORREÇÃO: Subir um nível da pasta src para a raiz do projeto
 const UPLOADS_ROOT = path.join(__dirname, '../../uploads');
 
-console.log('📁 Caminho raiz dos uploads CORRIGIDO:', UPLOADS_ROOT);
-console.log('📍 __dirname atual:', __dirname);
-console.log('📍 Caminho resolvido:', path.resolve(UPLOADS_ROOT));
-
 // === FUNÇÃO PARA NORMALIZAR MODELKEY ===
 function normalizeModelKey(modelKey) {
   if (!modelKey || modelKey === 'general') {
@@ -77,7 +73,7 @@ const upload = multer({
   }
 });
 
-// === UPLOAD DE IMAGEM (VERSÃO CORRIGIDA) ===
+// === UPLOAD DE IMAGEM (VERSÃO CORRIGIDA FINAL) ===
 const uploadImage = async (req, res, next) => {
   try {
     const uploadHandler = upload.single('image');
@@ -140,18 +136,35 @@ const uploadImage = async (req, res, next) => {
         }
       }
 
+      // 🔥 CORREÇÃO CRÍTICA: SEMPRE retornar URL no mesmo formato
       const imageUrl = `/uploads/${modelKey}/${newFileName}`;
-      console.log(`✅ Upload realizado com sucesso: ${imageUrl}`);
+
+      // 🔥 IMPORTANTE: Limpar URL para garantir consistência
+      const cleanedImageUrl = cleanImageUrl(imageUrl);
+
+      console.log(`🔍 DEBUG UPLOAD - modelKey: "${modelKey}"`);
+      console.log(`🔍 DEBUG UPLOAD - fileName: "${newFileName}"`);
+      console.log(`🔍 DEBUG UPLOAD - rawURL: "${imageUrl}"`);
+      console.log(`🔍 DEBUG UPLOAD - cleanURL: "${cleanedImageUrl}"`);
+      console.log(`✅ Upload realizado com sucesso: ${cleanedImageUrl}`);
 
       res.status(HTTP_STATUS.OK).json({
         success: true,
         message: 'Imagem enviada com sucesso',
         data: {
-          imageUrl: imageUrl,
+          // 🔥 SEMPRE usar a URL limpa e consistente
+          imageUrl: cleanedImageUrl,
           filename: newFileName,
           originalName: req.file.originalname,
           size: req.file.size,
-          modelKey: modelKey
+          modelKey: modelKey,
+          // Debug info (remover em produção)
+          debug: {
+            rawUrl: imageUrl,
+            cleanUrl: cleanedImageUrl,
+            uploadsRoot: UPLOADS_ROOT,
+            destinationPath: destinationPath
+          }
         }
       });
     });
@@ -190,7 +203,7 @@ async function findImageFile(imagePath) {
   return null;
 }
 
-// === DELETAR IMAGEM (VERSÃO MELHORADA) ===
+// === DELETAR IMAGEM  ===
 const deleteImage = async (req, res, next) => {
   try {
     console.log('🗑️ deleteImage Controller: Iniciando exclusão');
@@ -208,8 +221,12 @@ const deleteImage = async (req, res, next) => {
 
     console.log(`🔍 deleteImage Controller: Processando URL: ${imageUrl}`);
 
+    // 🔥 CORREÇÃO: Limpar URL antes de processar
+    const cleanedImageUrl = cleanImageUrl(imageUrl);
+    console.log(`🔍 deleteImage Controller: URL limpa: ${cleanedImageUrl}`);
+
     // Verificar se é uma URL do nosso sistema
-    if (!imageUrl.includes('/uploads/')) {
+    if (!cleanedImageUrl.includes('/uploads/')) {
       console.log('🔗 deleteImage Controller: URL externa detectada, rejeitando');
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
@@ -218,7 +235,13 @@ const deleteImage = async (req, res, next) => {
     }
 
     // Extrair caminho do arquivo da URL
-    const imagePath = imageUrl.replace('/uploads/', '');
+    let imagePath = cleanedImageUrl.replace('/uploads/', '');
+
+    // Remover qualquer duplicação restante
+    if (imagePath.startsWith('uploads/')) {
+      imagePath = imagePath.replace('uploads/', '');
+    }
+
     console.log(`📁 deleteImage Controller: Caminho extraído: ${imagePath}`);
 
     // Buscar arquivo em vários locais possíveis
@@ -237,6 +260,7 @@ const deleteImage = async (req, res, next) => {
           data: {
             deletedPath: foundPath,
             originalUrl: imageUrl,
+            cleanedUrl: cleanedImageUrl,
             actualLocation: foundPath
           }
         });
@@ -259,6 +283,7 @@ const deleteImage = async (req, res, next) => {
         data: {
           searchedPath: imagePath,
           originalUrl: imageUrl,
+          cleanedUrl: cleanedImageUrl,
           note: 'Arquivo não existia no sistema'
         }
       });
@@ -270,7 +295,7 @@ const deleteImage = async (req, res, next) => {
   }
 };
 
-// === LISTAR IMAGENS DE UM MODELO ===
+// === LISTAR IMAGENS DE UM MODELO  ===
 const getModelImages = async (req, res, next) => {
   try {
     const { modelKey } = req.params;
@@ -284,11 +309,20 @@ const getModelImages = async (req, res, next) => {
       const files = await fs.readdir(uploadPath);
       const images = files
         .filter(file => /\.(jpg|jpeg|png|gif|webp)$/i.test(file))
-        .map(file => ({
-          filename: file,
-          url: `/uploads/${normalizedModelKey}/${file}`,
-          path: path.join(uploadPath, file)
-        }));
+        .map(file => {
+          // 🔥 CORREÇÃO: Sempre criar URL no mesmo formato
+          const rawUrl = `/uploads/${normalizedModelKey}/${file}`;
+
+          return {
+            filename: file,
+            url: cleanUrl, // 🔥 SEMPRE usar URL limpa
+            path: path.join(uploadPath, file),
+            // Debug info
+            debug: {
+              rawUrl: rawUrl,
+            }
+          };
+        });
 
       console.log(`✅ Encontradas ${images.length} imagens para ${normalizedModelKey}`);
 
@@ -332,6 +366,56 @@ const migrateImages = async (req, res, next) => {
       results.total = imageFiles.length;
       console.log(`📊 Encontrados ${imageFiles.length} arquivos de imagem em /general`);
 
+      for (const file of imageFiles) {
+        try {
+          const sourcePath = path.join(generalPath, file);
+          const stats = await fs.stat(sourcePath);
+
+          // Tentar determinar o modelo baseado no nome do arquivo
+          let targetModelKey = 'general';
+
+          // Lógica para determinar modelo baseado no nome
+          if (file.includes('primary') || file.includes('rifle') || file.includes('assault')) {
+            targetModelKey = 'primary-weapons';
+          } else if (file.includes('secondary') || file.includes('pistol') || file.includes('sidearm')) {
+            targetModelKey = 'secondary-weapons';
+          } else if (file.includes('grenade') || file.includes('throwable')) {
+            targetModelKey = 'throwables';
+          } else if (file.includes('stratagem')) {
+            targetModelKey = 'stratagems';
+          } else if (file.includes('armor')) {
+            targetModelKey = 'armors';
+          } else if (file.includes('passive')) {
+            targetModelKey = 'passive-armors';
+          } else if (file.includes('perk')) {
+            targetModelKey = 'perks';
+          }
+
+          if (targetModelKey !== 'general') {
+            const targetPath = path.join(UPLOADS_ROOT, targetModelKey);
+            await fs.mkdir(targetPath, { recursive: true });
+
+            const targetFilePath = path.join(targetPath, file);
+            await fs.rename(sourcePath, targetFilePath);
+
+            results.moved.push({
+              file: file,
+              from: 'general',
+              to: targetModelKey,
+              url: cleanImageUrl(`/uploads/${targetModelKey}/${file}`)
+            });
+
+            console.log(`✅ Migrado: ${file} -> ${targetModelKey}`);
+          }
+        } catch (error) {
+          results.errors.push({
+            file: file,
+            error: error.message
+          });
+          console.error(`❌ Erro ao migrar ${file}:`, error.message);
+        }
+      }
+
       res.status(HTTP_STATUS.OK).json({
         success: true,
         message: 'Migração concluída',
@@ -359,13 +443,15 @@ const cleanupIncorrectDirectories = async (req, res, next) => {
 
     const incorrectPaths = [
       path.join(__dirname, '../../../uploads'), // Dois níveis acima
-      path.join(__dirname, '../uploads')        // Um nível acima (src/uploads)
+      path.join(__dirname, '../uploads'),       // Um nível acima (src/uploads)
+      path.join(__dirname, 'uploads')           // Dentro de src/
     ];
 
     const results = {
       cleaned: [],
       errors: [],
-      totalRemoved: 0
+      totalRemoved: 0,
+      filesMoved: []
     };
 
     for (const incorrectPath of incorrectPaths) {
@@ -383,28 +469,41 @@ const cleanupIncorrectDirectories = async (req, res, next) => {
           // Mover arquivos para o local correto se possível
           for (const file of files) {
             const sourcePath = path.join(incorrectPath, file);
-            const targetPath = path.join(UPLOADS_ROOT, 'general', file);
+            const stats = await fs.stat(sourcePath);
 
-            try {
-              // Garantir que a pasta de destino existe
-              await fs.mkdir(path.join(UPLOADS_ROOT, 'general'), { recursive: true });
+            if (stats.isFile() && /\.(jpg|jpeg|png|gif|webp)$/i.test(file)) {
+              const targetPath = path.join(UPLOADS_ROOT, 'general', file);
 
-              // Mover arquivo
-              await fs.rename(sourcePath, targetPath);
-              results.totalRemoved++;
-              console.log(`✅ Movido: ${file} -> ${targetPath}`);
-            } catch (moveError) {
-              console.error(`❌ Erro ao mover ${file}:`, moveError.message);
-              results.errors.push(`Erro ao mover ${file}: ${moveError.message}`);
+              try {
+                // Garantir que a pasta de destino existe
+                await fs.mkdir(path.join(UPLOADS_ROOT, 'general'), { recursive: true });
+
+                // Mover arquivo
+                await fs.rename(sourcePath, targetPath);
+                results.totalRemoved++;
+                results.filesMoved.push({
+                  file: file,
+                  from: incorrectPath,
+                  to: targetPath,
+                  url: cleanImageUrl(`/uploads/general/${file}`)
+                });
+                console.log(`✅ Movido: ${file} -> ${targetPath}`);
+              } catch (moveError) {
+                console.error(`❌ Erro ao mover ${file}:`, moveError.message);
+                results.errors.push(`Erro ao mover ${file}: ${moveError.message}`);
+              }
             }
           }
         }
 
         // Tentar remover diretório vazio
         try {
-          await fs.rmdir(incorrectPath);
-          results.cleaned.push(incorrectPath);
-          console.log(`🗑️ Diretório removido: ${incorrectPath}`);
+          const remainingFiles = await fs.readdir(incorrectPath);
+          if (remainingFiles.length === 0) {
+            await fs.rmdir(incorrectPath);
+            results.cleaned.push(incorrectPath);
+            console.log(`🗑️ Diretório removido: ${incorrectPath}`);
+          }
         } catch (rmError) {
           console.warn(`⚠️ Não foi possível remover ${incorrectPath}:`, rmError.message);
         }
@@ -426,6 +525,7 @@ const cleanupIncorrectDirectories = async (req, res, next) => {
     next(error);
   }
 };
+
 
 module.exports = {
   uploadImage,

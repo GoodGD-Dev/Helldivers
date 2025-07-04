@@ -186,9 +186,6 @@ router.get('/debug/all-upload-locations', async (req, res, next) => {
 
     const possiblePaths = [
       path.join(__dirname, '../../uploads'),        // Correto
-      path.join(__dirname, '../uploads'),           // src/uploads (incorreto)
-      path.join(__dirname, '../../../uploads'),     // Acima da raiz (incorreto)
-      path.join(__dirname, '../../../../uploads')   // Muito acima (incorreto)
     ];
 
     const results = {};
