@@ -149,8 +149,6 @@ const ArmorPage: React.FC = () => {
               {passive.effect || passive.efeito || 'No effect'}
             </p>
           </div>
-
-          {/* CORREÇÃO: Usar ImageWithPlaceholder e imageUrl processada */}
           <div className="mt-3">
             <ImageWithPlaceholder
               src={passive.imageUrl || passive.image} // ← USAR imageUrl primeiro

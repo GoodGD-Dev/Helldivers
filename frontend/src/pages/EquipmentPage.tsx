@@ -46,45 +46,30 @@ const EquipmentPage: React.FC = () => {
   const renderThrowableCard = (throwable: any) => (
     <Card key={throwable._id} className="p-4" hover>
       <div className="space-y-3">
-        <div className="flex justify-between items-start">
-          <h3 className="text-lg font-semibold text-gray-900">
-            {throwable.name || 'Unknown'}
-          </h3>
-          <span className="text-sm text-gray-500 capitalize">
-            {throwable.type || 'Unknown'}
-          </span>
-        </div>
+        <h3 className="text-lg font-semibold text-gray-900">
+          {throwable.name || 'Unknown'}
+        </h3>
 
         {throwable.description && (
           <p className="text-sm text-gray-600">{throwable.description}</p>
         )}
 
-        <div className="flex flex-wrap gap-2">
-          <StatBadge
-            label="Damage"
-            value={Number(throwable.damage) || 0}
-            color="red"
-          />
-          <StatBadge
-            label="Blast Radius"
-            value={Number(throwable.blastRadius) || 0}
-            color="blue"
+        <div className="bg-gray-50 p-3 rounded-md">
+          <p className="text-xs text-gray-500 mb-1">Efeito:</p>
+          <p className="text-sm text-gray-700 font-medium">
+            {throwable.effect || throwable.efeito || 'No effect'}
+          </p>
+        </div>
+        <div className="mt-3">
+          <ImageWithPlaceholder
+            src={throwable.imageUrl || throwable.image} // ← USAR imageUrl primeiro
+            alt={throwable.name || 'Passive'}
+            className="w-full h-32 object-cover rounded-md"
+            fallbackIcon="✨"
+            fallbackText="No Passive Image"
+            fallbackGradient="from-purple-200 to-purple-300"
           />
         </div>
-
-        {throwable.image && (
-          <div className="mt-3">
-            <ImageWithPlaceholder
-              src={throwable.image}
-              alt={throwable.name || 'Throwable'}
-              className="w-full h-32 object-cover rounded-md bg-gray-100"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement
-                target.style.display = 'none'
-              }}
-            />
-          </div>
-        )}
       </div>
     </Card>
   )
@@ -92,45 +77,30 @@ const EquipmentPage: React.FC = () => {
   const renderStratagemCard = (stratagem: any) => (
     <Card key={stratagem._id} className="p-4" hover>
       <div className="space-y-3">
-        <div className="flex justify-between items-start">
-          <h3 className="text-lg font-semibold text-gray-900">
-            {stratagem.name || 'Unknown'}
-          </h3>
-          <span className="text-sm text-gray-500 capitalize">
-            {stratagem.category || 'Unknown'}
-          </span>
-        </div>
+        <h3 className="text-lg font-semibold text-gray-900">
+          {stratagem.name || 'Unknown'}
+        </h3>
 
         {stratagem.description && (
           <p className="text-sm text-gray-600">{stratagem.description}</p>
         )}
 
-        <div className="flex flex-wrap gap-2">
-          <StatBadge
-            label="Uses"
-            value={Number(stratagem.uses) || 0}
-            color="green"
-          />
-          <StatBadge
-            label="Cooldown"
-            value={`${Number(stratagem.cooldown) || 0}s`}
-            color="yellow"
+        <div className="bg-gray-50 p-3 rounded-md">
+          <p className="text-xs text-gray-500 mb-1">Efeito:</p>
+          <p className="text-sm text-gray-700 font-medium">
+            {stratagem.effect || stratagem.efeito || 'No effect'}
+          </p>
+        </div>
+        <div className="mt-3">
+          <ImageWithPlaceholder
+            src={stratagem.imageUrl || stratagem.image} // ← USAR imageUrl primeiro
+            alt={stratagem.name || 'Passive'}
+            className="w-full h-32 object-cover rounded-md"
+            fallbackIcon="✨"
+            fallbackText="No Passive Image"
+            fallbackGradient="from-purple-200 to-purple-300"
           />
         </div>
-
-        {stratagem.image && (
-          <div className="mt-3">
-            <ImageWithPlaceholder
-              src={stratagem.image}
-              alt={stratagem.name || 'Stratagem'}
-              className="w-full h-32 object-cover rounded-md bg-gray-100"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement
-                target.style.display = 'none'
-              }}
-            />
-          </div>
-        )}
       </div>
     </Card>
   )
