@@ -124,8 +124,9 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
   maxAge: process.env.NODE_ENV === 'production' ? '7d' : '0',
   etag: true,
   lastModified: true,
-  setHeaders: (res, filePath) => {
+  setHeaders: (res, filePath, stat) => {
     // Security headers para uploads
+    res.set('Cross-Origin-Resource-Policy', 'cross-origin')
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
 
